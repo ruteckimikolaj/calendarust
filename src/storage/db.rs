@@ -48,7 +48,7 @@ pub fn get_events_in_range(conn: &Connection, start: i64, end: i64) -> Result<Ve
         let updated_ts: i64 = row.get(7)?;
 
         Ok(Event {
-            id: row.get(0)?,
+            id: Some(row.get(0)?),
             title: row.get(1)?,
             description: row.get(2)?,
             start_datetime: DateTime::from_timestamp(start_ts, 0).unwrap_or_default(),

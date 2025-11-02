@@ -30,9 +30,9 @@ pub fn draw_event_form(f: &mut Frame, app: &mut App, area: Rect) {
         form_state.description.set_block(Block::default().borders(Borders::ALL).title("Description"));
         form_state.location.set_block(Block::default().borders(Borders::ALL).title("Location"));
 
-        f.render_widget(&form_state.title, form_chunks[0]);
-        f.render_widget(&form_state.description, form_chunks[1]);
-        f.render_widget(&form_state.location, form_chunks[2]);
+        f.render_widget(form_state.title.widget(), form_chunks[0]);
+        f.render_widget(form_state.description.widget(), form_chunks[1]);
+        f.render_widget(form_state.location.widget(), form_chunks[2]);
     }
 }
 

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 
 pub struct Event {
-    pub id: i64,
+    pub id: Option<i64>,
     pub title: String,
     pub description: Option<String>,
     pub start_datetime: DateTime<Utc>,
