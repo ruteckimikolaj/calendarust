@@ -1,7 +1,7 @@
 use crate::models::event::Event;
-use anyhow::{Context, Result};
-use chrono::DateTime;
-use rusqlite::{params, Connection};
+use anyhow::{anyhow, Context, Result};
+use chrono::{TimeZone, Utc};
+use rusqlite::{types::Type, params, Connection, Error as RusqliteError};
 use std::fs;
 use std::path::PathBuf;
 
@@ -51,11 +51,23 @@ pub fn get_events_in_range(conn: &Connection, start: i64, end: i64) -> Result<Ve
             id: Some(row.get(0)?),
             title: row.get(1)?,
             description: row.get(2)?,
-            start_datetime: DateTime::from_timestamp(start_ts, 0).unwrap_or_default(),
-            end_datetime: DateTime::from_timestamp(end_ts, 0).unwrap_or_default(),
+            start_datetime: Utc
+                .timestamp_opt(start_ts, 0)
+                .single()
+                .ok_or_else(|| RusqliteError::InvalidColumnType(3, "Invalid timestamp".into(), Type::Integer))?,
+            end_datetime: Utc
+                .timestamp_opt(end_ts, 0)
+                .single()
+                .ok_or_else(|| RusqliteError::InvalidColumnType(4, "Invalid timestamp".into(), Type::Integer))?,
             location: row.get(5)?,
-            created_at: DateTime::from_timestamp(created_ts, 0).unwrap_or_default(),
-            updated_at: DateTime::from_timestamp(updated_ts, 0).unwrap_or_default(),
+            created_at: Utc
+                .timestamp_opt(created_ts, 0)
+                .single()
+                .ok_or_else(|| RusqliteError::InvalidColumnType(6, "Invalid timestamp".into(), Type::Integer))?,
+            updated_at: Utc
+                .timestamp_opt(updated_ts, 0)
+                .single()
+                .ok_or_else(|| RusqliteError::InvalidColumnType(7, "Invalid timestamp".into(), Type::Integer))?,
         })
     })?;
 
@@ -82,6 +94,9 @@ pub fn create_event(conn: &Connection, event: &Event) -> Result<i64> {
 }
 
 pub fn update_event(conn: &Connection, event: &Event) -> Result<()> {
+    let id = event
+        .id
+        .ok_or_else(|| anyhow!("Cannot update event without ID"))?;
     conn.execute(
         "UPDATE events SET title = ?1, description = ?2, start_datetime = ?3, end_datetime = ?4, location = ?5, updated_at = strftime('%s', 'now') WHERE id = ?6",
         params![
@@ -90,7 +105,7 @@ pub fn update_event(conn: &Connection, event: &Event) -> Result<()> {
             event.start_datetime.timestamp(),
             event.end_datetime.timestamp(),
             event.location,
-            event.id,
+            id,
         ],
     )?;
     Ok(())
