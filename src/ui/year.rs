@@ -1,5 +1,5 @@
 use crate::app::App;
-use chrono::{Datelike, Month};
+use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -39,22 +39,24 @@ pub fn draw_year_view(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn mini_month_table<'a>(year: i32, month: u32) -> Table<'a> {
-    let month_name = Month::try_from(month as u8).unwrap().name();
+    let month_name = Month::try_from(month as u8)
+        .unwrap_or(Month::January)
+        .name();
     let header_cells = ["M", "T", "W", "T", "F", "S", "S"]
         .iter()
         .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
     let header = Row::new(header_cells).height(1);
 
-    let first_day = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or_default();
     let weekday_of_first = first_day.weekday().num_days_from_monday();
 
     let mut rows = vec![];
     let mut days: Vec<Cell> = (0..weekday_of_first).map(|_| Cell::from("")).collect();
 
     let days_in_month = if month == 12 {
-        chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap_or(first_day)
     } else {
-        chrono::NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap_or(first_day)
     }
     .signed_duration_since(first_day)
     .num_days();

@@ -1,75 +1,114 @@
 use crate::{
     app::{App, AppState, EventFormState, InteractionMode},
     models::event::Event,
-    storage::db::{create_event, delete_event},
+    storage::db::{create_event, delete_event, get_events_in_range, update_event},
 };
-use chrono::{Duration, TimeZone, Utc};
+use chrono::{Datelike, Duration, TimeZone, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
 use tui_textarea::TextArea;
 
 pub fn handle_input<'a>(key: KeyEvent, app: &mut App<'a>) {
+    if key.code == KeyCode::Tab {
+        app.state = match app.state {
+            AppState::Year => AppState::Month,
+            AppState::Month => AppState::Week,
+            AppState::Week => AppState::Day,
+            AppState::Day => AppState::Year,
+        };
+        return;
+    }
     match app.mode {
         InteractionMode::Navigation => handle_navigation_input(key, app),
+        InteractionMode::Selection => handle_selection_input(key, app),
+        InteractionMode::TimeSlot => handle_timeslot_input(key, app),
         InteractionMode::EventForm => handle_event_form_input(key, app),
-        _ => {}
     }
 }
 
 fn handle_navigation_input(key: KeyEvent, app: &mut App) {
+    match app.state {
+        AppState::Year => match key.code {
+            KeyCode::Enter => app.mode = InteractionMode::Selection,
+            KeyCode::Left => app.selected_date = app.selected_date.with_month(app.selected_date.month() - 1).unwrap_or(app.selected_date),
+            KeyCode::Right => app.selected_date = app.selected_date.with_month(app.selected_date.month() + 1).unwrap_or(app.selected_date),
+            KeyCode::Up => app.selected_date = app.selected_date.with_year(app.selected_date.year() - 1).unwrap_or(app.selected_date),
+            KeyCode::Down => app.selected_date = app.selected_date.with_year(app.selected_date.year() + 1).unwrap_or(app.selected_date),
+            _ => {}
+        },
+        AppState::Month => match key.code {
+            KeyCode::Enter => app.mode = InteractionMode::Selection,
+            KeyCode::Left => app.selected_date = app.selected_date - Duration::days(1),
+            KeyCode::Right => app.selected_date = app.selected_date + Duration::days(1),
+            KeyCode::Up => app.selected_date = app.selected_date - Duration::weeks(1),
+            KeyCode::Down => app.selected_date = app.selected_date + Duration::weeks(1),
+            _ => {}
+        },
+        AppState::Week | AppState::Day => match key.code {
+            KeyCode::Enter => app.mode = InteractionMode::Selection,
+            KeyCode::Left => app.selected_date = app.selected_date - Duration::days(1),
+            KeyCode::Right => app.selected_date = app.selected_date + Duration::days(1),
+            KeyCode::Up => app.selected_time = app.selected_time.overflowing_sub_signed(Duration::minutes(30)).0,
+            KeyCode::Down => app.selected_time = app.selected_time.overflowing_add_signed(Duration::minutes(30)).0,
+            _ => {}
+        },
+    }
+}
+
+fn handle_selection_input(key: KeyEvent, app: &mut App) {
     match key.code {
-        KeyCode::Char('q') => {
-            // In a real app, you'd want to set a flag to exit the loop
+        KeyCode::Esc => {
+            app.mode = InteractionMode::Navigation;
         }
-        KeyCode::Tab => {
-            app.state = match app.state {
-                AppState::Year => AppState::Month,
-                AppState::Month => AppState::Week,
-                AppState::Week => AppState::Day,
-                AppState::Day => AppState::Year,
+        KeyCode::Enter => match app.state {
+            AppState::Year => {
+                app.state = AppState::Month;
+                app.mode = InteractionMode::Navigation;
             }
-        }
-        KeyCode::Char('n') => {
-            app.mode = InteractionMode::EventForm;
-            app.event_form_state = Some(EventFormState {
-                title: TextArea::default(),
-                description: TextArea::default(),
-                location: TextArea::default(),
-                start_datetime: Utc::now().naive_utc(),
-                end_datetime: Utc::now().naive_utc(),
-                focused_field: 0,
-            });
-        }
-        KeyCode::Char('d') => {
-            if let Some(event_id) = app.selected_event_id {
-                delete_event(&app.conn, event_id).unwrap();
-                app.selected_event_id = None;
+            AppState::Month => {
+                app.state = AppState::Day;
+                app.mode = InteractionMode::Navigation;
             }
-        }
-        KeyCode::Char('e') => {
-            if let Some(_event_id) = app.selected_event_id {
-                // In a real app, you'd fetch the event and populate the form
-                app.mode = InteractionMode::EventForm;
-                app.event_form_state = Some(EventFormState {
-                    title: TextArea::from(vec!["Existing Event"]),
-                    description: TextArea::default(),
-                    location: TextArea::default(),
-                    start_datetime: Utc::now().naive_utc(),
-                    end_datetime: Utc::now().naive_utc(),
-                    focused_field: 0,
-                });
+            AppState::Week | AppState::Day => {
+                app.mode = InteractionMode::TimeSlot;
+                app.selection_start = Some(app.selected_time);
             }
+        },
+        _ => {
+            // Arrow keys in selection mode do nothing for now
         }
-        KeyCode::Left => {
-            app.selected_date = app.selected_date - Duration::days(1);
-        }
-        KeyCode::Right => {
-            app.selected_date = app.selected_date + Duration::days(1);
+    }
+}
+
+fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
+    match key.code {
+        KeyCode::Esc => {
+            app.mode = InteractionMode::Selection;
+            app.selection_start = None;
         }
         KeyCode::Up => {
-            app.selected_date = app.selected_date - Duration::weeks(1);
+            app.selected_time = app.selected_time.overflowing_sub_signed(Duration::minutes(30)).0;
         }
         KeyCode::Down => {
-            app.selected_date = app.selected_date + Duration::weeks(1);
+            app.selected_time = app.selected_time.overflowing_add_signed(Duration::minutes(30)).0;
+        }
+        KeyCode::Enter => {
+            if let Some(start_time) = app.selection_start {
+                app.mode = InteractionMode::EventForm;
+                let (start, end) = if start_time < app.selected_time {
+                    (start_time, app.selected_time)
+                } else {
+                    (app.selected_time, start_time)
+                };
+                app.event_form_state = Some(EventFormState {
+                    title: TextArea::default(),
+                    description: TextArea::default(),
+                    location: TextArea::default(),
+                    start_datetime: app.selected_date.and_time(start),
+                    end_datetime: app.selected_date.and_time(end) + Duration::minutes(30),
+                    focused_field: 0,
+                });
+                app.selection_start = None;
+            }
         }
         _ => {}
     }
@@ -86,8 +125,8 @@ fn handle_event_form_input<'a>(key: KeyEvent, app: &mut App<'a>) {
                 form_state.focused_field = (form_state.focused_field + 1) % 3;
             }
             KeyCode::Enter => {
-                let new_event = Event {
-                    id: 0,
+                let event = Event {
+                    id: app.selected_event_id.unwrap_or(0),
                     title: form_state.title.lines().join("\n"),
                     description: Some(form_state.description.lines().join("\n")),
                     start_datetime: Utc.from_utc_datetime(&form_state.start_datetime),
@@ -96,7 +135,11 @@ fn handle_event_form_input<'a>(key: KeyEvent, app: &mut App<'a>) {
                     created_at: Utc::now(),
                     updated_at: Utc::now(),
                 };
-                create_event(&app.conn, &new_event).unwrap();
+                if app.selected_event_id.is_some() {
+                    let _ = update_event(&app.conn, &event);
+                } else {
+                    let _ = create_event(&app.conn, &event);
+                }
                 app.mode = InteractionMode::Navigation;
                 app.event_form_state = None;
             }

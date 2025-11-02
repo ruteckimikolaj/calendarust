@@ -39,7 +39,7 @@ pub fn get_events_in_range(conn: &Connection, start: i64, end: i64) -> Result<Ve
     let mut stmt = conn.prepare(
         "SELECT id, title, description, start_datetime, end_datetime, location, created_at, updated_at
          FROM events
-         WHERE start_datetime >= ?1 AND end_datetime <= ?2",
+         WHERE start_datetime < ?2 AND end_datetime > ?1",
     )?;
     let event_iter = stmt.query_map([start, end], |row| {
         let start_ts: i64 = row.get(3)?;

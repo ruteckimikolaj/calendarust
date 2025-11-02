@@ -33,24 +33,21 @@ fn week_table<'a>(app: &App) -> Table<'a> {
         .height(1)
         .bottom_margin(1);
 
-    let now = chrono::Local::now().naive_local();
-    let year = now.year();
-    let week = now.iso_week().week();
-    let first_day_of_week =
-        chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Mon).unwrap();
-    let last_day_of_week =
-        chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Sun).unwrap();
+    let year = app.selected_date.year();
+    let week = app.selected_date.iso_week().week();
+    let first_day_of_week = chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Mon)
+        .unwrap_or(app.selected_date);
+    let last_day_of_week = chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Sun)
+        .unwrap_or(app.selected_date);
 
     let start_timestamp = first_day_of_week
         .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_utc()
-        .timestamp();
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or_default();
     let end_timestamp = last_day_of_week
         .and_hms_opt(23, 59, 59)
-        .unwrap()
-        .and_utc()
-        .timestamp();
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or_default();
 
     let events = get_events_in_range(&app.conn, start_timestamp, end_timestamp).unwrap_or_default();
 
@@ -61,8 +58,7 @@ fn week_table<'a>(app: &App) -> Table<'a> {
         .visible_hours_start
         .split(':')
         .next()
-        .unwrap()
-        .parse::<u32>()
+        .and_then(|h| h.parse::<u32>().ok())
         .unwrap_or(6);
     let end_hour = app
         .config
@@ -70,8 +66,7 @@ fn week_table<'a>(app: &App) -> Table<'a> {
         .visible_hours_end
         .split(':')
         .next()
-        .unwrap()
-        .parse::<u32>()
+        .and_then(|h| h.parse::<u32>().ok())
         .unwrap_or(18);
 
     for hour in start_hour..end_hour {
@@ -80,17 +75,30 @@ fn week_table<'a>(app: &App) -> Table<'a> {
             let mut cells = vec![time_cell];
             for day_offset in 0..7 {
                 let current_day = first_day_of_week + chrono::Duration::days(day_offset);
-                let mut event_text = String::new();
-                for event in &events {
-                    let event_start_time = event.start_datetime.time();
-                    if event.start_datetime.date_naive() == current_day
-                        && event_start_time.hour() == hour
-                        && event_start_time.minute() == minute
-                    {
-                        event_text.push_str(&event.title);
+                if let Some(current_time) = chrono::NaiveTime::from_hms_opt(hour, minute, 0) {
+                    let mut event_text = String::new();
+                    let mut cell_style = Style::default();
+
+                    for event in &events {
+                        let event_start_time = event.start_datetime.time();
+                        let event_end_time = event.end_datetime.time();
+                        if event.start_datetime.date_naive() == current_day
+                            && current_time >= event_start_time
+                            && current_time < event_end_time
+                        {
+                            event_text.push_str(&event.title);
+                            cell_style = cell_style.bg(Color::Cyan);
+                        }
                     }
+                    let mut cell = Cell::from(event_text).style(cell_style);
+                    if current_day == app.selected_date
+                        && hour == app.selected_time.hour()
+                        && minute == app.selected_time.minute()
+                    {
+                        cell = cell.style(Style::default().bg(Color::Yellow));
+                    }
+                    cells.push(cell);
                 }
-                cells.push(Cell::from(event_text));
             }
             rows.push(Row::new(cells).height(2));
         }

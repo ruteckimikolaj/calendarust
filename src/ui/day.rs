@@ -7,13 +7,15 @@ use ratatui::{
     Frame,
 };
 
-pub fn draw_day_view(f: &mut Frame, app: &App, area:Rect) {
+pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let month = app.selected_date.month();
     let day = app.selected_date.day();
     let title = format!(
         "{} {}, {}",
-        chrono::Month::try_from(month as u8).unwrap().name(),
+        chrono::Month::try_from(month as u8)
+            .unwrap_or(chrono::Month::January)
+            .name(),
         day,
         year
     );
@@ -39,14 +41,16 @@ fn day_table<'a>(app: &App) -> Table<'a> {
         .height(1)
         .bottom_margin(1);
 
-    let now = chrono::Local::now().naive_local();
-    let start_timestamp = now.date().and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
-    let end_timestamp = now
-        .date()
+    let start_timestamp = app
+        .selected_date
+        .and_hms_opt(0, 0, 0)
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or_default();
+    let end_timestamp = app
+        .selected_date
         .and_hms_opt(23, 59, 59)
-        .unwrap()
-        .and_utc()
-        .timestamp();
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or_default();
 
     let events = get_events_in_range(&app.conn, start_timestamp, end_timestamp).unwrap_or_default();
 
@@ -56,14 +60,26 @@ fn day_table<'a>(app: &App) -> Table<'a> {
         for minute in [0, 30] {
             let time_cell = Cell::from(format!("{:02}:{:02}", hour, minute));
             let mut event_text = String::new();
+            let mut row_style = Style::default();
+
             for event in &events {
                 let event_start_time = event.start_datetime.time();
-                if event_start_time.hour() == hour && event_start_time.minute() == minute {
-                    event_text.push_str(&event.title);
+                let event_end_time = event.end_datetime.time();
+                if let Some(current_time) = chrono::NaiveTime::from_hms_opt(hour, minute, 0) {
+                    if current_time >= event_start_time && current_time < event_end_time {
+                        event_text = event.title.clone();
+                        row_style = row_style.bg(Color::Cyan);
+                    }
                 }
             }
             let event_cell = Cell::from(event_text);
-            rows.push(Row::new(vec![time_cell, event_cell]).height(2));
+            let mut row = Row::new(vec![time_cell, event_cell]).height(2);
+            if hour == app.selected_time.hour() && minute == app.selected_time.minute() {
+                row = row.style(Style::default().bg(Color::Yellow));
+            } else {
+                row = row.style(row_style);
+            }
+            rows.push(row);
         }
     }
 
