@@ -67,14 +67,13 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
                 false
             };
 
-        let mut event_cell = Cell::from(event_text);
         if is_focused {
-            cell_style = focused_style();
+            cell_style = cell_style.patch(focused_style());
         }
         if is_in_selection_range {
-            cell_style = selection_style();
+            cell_style = cell_style.patch(selection_style());
         }
-        event_cell = event_cell.style(cell_style);
+        let event_cell = Cell::from(event_text).style(cell_style);
 
         rows.push(Row::new(vec![time_cell, event_cell]).height(1));
         }

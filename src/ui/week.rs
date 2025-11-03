@@ -69,10 +69,10 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
                 };
 
             if is_focused {
-                cell_style = focused_style();
+                cell_style = cell_style.patch(focused_style());
             }
             if is_in_selection_range {
-                cell_style = selection_style();
+                cell_style = cell_style.patch(selection_style());
             }
 
             row_cells.push(Cell::from(event_text).style(cell_style));

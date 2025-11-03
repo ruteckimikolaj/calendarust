@@ -3,7 +3,7 @@ use crate::{
     models::event::Event,
     storage::db::{create_event, delete_event, update_event},
 };
-use chrono::{Datelike, Duration, TimeZone, Utc, Timelike};
+use chrono::{Datelike, Duration, Local, TimeZone, Utc, Timelike};
 use crossterm::event::{KeyCode, KeyEvent};
 use tui_textarea::TextArea;
 
@@ -20,6 +20,7 @@ pub fn handle_input<'a>(key: KeyEvent, app: &mut App<'a>) {
             AppState::Week => AppState::Day,
             AppState::Day => AppState::Year,
         };
+        app.load_events();
         return;
     }
 
@@ -253,8 +254,14 @@ fn handle_event_form_input<'a>(key: KeyEvent, app: &mut App<'a>) {
                         id: app.selected_event_id,
                         title: form_state.title.lines().join("\n"),
                         description: Some(form_state.description.lines().join("\n")),
-                        start_datetime: Utc.from_utc_datetime(&form_state.start_datetime),
-                        end_datetime: Utc.from_utc_datetime(&form_state.end_datetime),
+                        start_datetime: Local
+                            .from_local_datetime(&form_state.start_datetime)
+                            .unwrap()
+                            .with_timezone(&Utc),
+                        end_datetime: Local
+                            .from_local_datetime(&form_state.end_datetime)
+                            .unwrap()
+                            .with_timezone(&Utc),
                         location: Some(form_state.location.lines().join("\n")),
                         created_at: Utc::now(),
                         updated_at: Utc::now(),
