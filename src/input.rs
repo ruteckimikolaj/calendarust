@@ -3,7 +3,7 @@ use crate::{
     models::event::Event,
     storage::db::{create_event, delete_event, get_events_in_range, update_event},
 };
-use chrono::{Datelike, Duration, TimeZone, Utc};
+use chrono::{Datelike, Duration, TimeZone, Utc, Timelike};
 use crossterm::event::{KeyCode, KeyEvent};
 use tui_textarea::TextArea;
 
@@ -128,19 +128,27 @@ fn handle_navigation_input(key: KeyEvent, app: &mut App) {
                     }
                 }
             }
-            KeyCode::Left => app.selected_date -= Duration::days(1),
-            KeyCode::Right => app.selected_date += Duration::days(1),
+            KeyCode::Left => {
+                if app.state == AppState::Week {
+                    app.selected_date -= Duration::days(1);
+                }
+            }
+            KeyCode::Right => {
+                if app.state == AppState::Week {
+                    app.selected_date += Duration::days(1);
+                }
+            }
             KeyCode::Up => {
-                app.selected_time = app
-                    .selected_time
-                    .overflowing_sub_signed(Duration::minutes(30))
-                    .0
+                let start_hour = app.config.calendar.visible_hours_start.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(0);
+                if app.selected_time.hour() > start_hour {
+                    app.selected_time -= Duration::hours(1);
+                }
             }
             KeyCode::Down => {
-                app.selected_time = app
-                    .selected_time
-                    .overflowing_add_signed(Duration::minutes(30))
-                    .0
+                let end_hour = app.config.calendar.visible_hours_end.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(24);
+                if app.selected_time.hour() < end_hour - 1 {
+                    app.selected_time += Duration::hours(1);
+                }
             }
             _ => {}
         },
@@ -176,10 +184,16 @@ fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
             app.selection_start = None;
         }
         KeyCode::Up => {
-            app.selected_time = app.selected_time.overflowing_sub_signed(Duration::minutes(30)).0;
+            let start_hour = app.config.calendar.visible_hours_start.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(0);
+            if app.selected_time.hour() > start_hour {
+                app.selected_time -= Duration::hours(1);
+            }
         }
         KeyCode::Down => {
-            app.selected_time = app.selected_time.overflowing_add_signed(Duration::minutes(30)).0;
+            let end_hour = app.config.calendar.visible_hours_end.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(24);
+            if app.selected_time.hour() < end_hour - 1 {
+                app.selected_time += Duration::hours(1);
+            }
         }
         KeyCode::Enter => {
             if let Some(start_time) = app.selection_start {
@@ -194,7 +208,7 @@ fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
                     description: TextArea::default(),
                     location: TextArea::default(),
                     start_datetime: app.selected_date.and_time(start),
-                    end_datetime: app.selected_date.and_time(end) + Duration::minutes(30),
+                    end_datetime: app.selected_date.and_time(end) + Duration::hours(1),
                     focused_field: 0,
                 });
                 app.selection_start = None;

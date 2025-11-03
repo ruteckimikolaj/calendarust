@@ -3,11 +3,11 @@ use crate::{
     storage::db::get_events_in_range,
     ui::style::{focused_style, selection_style, thick_rounded_borders, PASTEL_CYAN},
 };
-use chrono::Datelike;
+use chrono::{Datelike, Timelike};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Style},
-    widgets::{Block, Borders, Paragraph},
+    style::Style,
+    widgets::{Block, Borders, Paragraph, BorderType},
     Frame,
 };
 
@@ -63,54 +63,49 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         .and_then(|h| h.parse::<u32>().ok())
         .unwrap_or(24);
 
-    let time_slots_count = ((end_hour - start_hour) * 2) as usize;
-    let time_slots_constraints = vec![Constraint::Length(1); time_slots_count];
+    let num_hours = end_hour - start_hour;
+    let constraints = (0..num_hours)
+        .map(|_| Constraint::Ratio(1, num_hours))
+        .collect::<Vec<_>>();
 
     let time_slots_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(time_slots_constraints.clone())
+        .constraints(constraints.clone())
         .split(outer_layout[0]);
 
     let event_slots_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(time_slots_constraints)
+        .constraints(constraints)
         .split(outer_layout[1]);
 
-    for i in 0..time_slots_count {
-        let time_slot = &time_slots_layout[i];
-        let event_slot = &event_slots_layout[i];
-        let hour = start_hour + (i as u32 / 2);
-        let minute = (i as u32 % 2) * 30;
-        let current_time = chrono::NaiveTime::from_hms_opt(hour as u32, minute as u32, 0).unwrap();
+    for (i, hour) in (start_hour..end_hour).enumerate() {
+        let time_slot = time_slots_layout[i];
+        let event_slot = event_slots_layout[i];
 
-        // --- Render Time Label ---
-        let time_text = format!("{:02}:{:02}", hour, minute);
+        let time_text = format!("{:02}:00", hour);
         let time_paragraph = Paragraph::new(time_text);
-        f.render_widget(time_paragraph, *time_slot);
+        f.render_widget(time_paragraph, time_slot);
 
-        // --- Render Event Cell ---
         let mut event_text = String::new();
         let mut cell_style = Style::default();
 
         for event in &events {
-            let event_start_time = event.start_datetime.time();
-            let event_end_time = event.end_datetime.time();
-            if current_time >= event_start_time && current_time < event_end_time {
+            let event_start_hour = event.start_datetime.hour();
+            if event.start_datetime.date_naive() == app.selected_date && event_start_hour == hour {
                 event_text = event.title.clone();
                 cell_style = cell_style.bg(PASTEL_CYAN);
             }
         }
 
-        let is_focused = app.selected_time == current_time;
-
+        let is_focused = app.selected_time.hour() == hour;
         let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
             if let Some(start_time) = app.selection_start {
                 let (start, end) = if start_time <= app.selected_time {
-                    (start_time, app.selected_time)
+                    (start_time.hour(), app.selected_time.hour())
                 } else {
-                    (app.selected_time, start_time)
+                    (app.selected_time.hour(), start_time.hour())
                 };
-                current_time >= start && current_time <= end
+                hour >= start && hour <= end
             } else {
                 false
             }
@@ -118,7 +113,7 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
             false
         };
 
-        let mut block = Block::default().borders(Borders::ALL);
+        let mut block = Block::default().borders(Borders::ALL).border_type(BorderType::Plain);
         if is_focused {
             block = block.border_style(focused_style());
         }
@@ -127,7 +122,7 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         }
 
         let event_paragraph = Paragraph::new(event_text).style(cell_style);
-        f.render_widget(block.clone(), *event_slot);
-        f.render_widget(event_paragraph, block.inner(*event_slot));
+        f.render_widget(block.clone(), event_slot);
+        f.render_widget(event_paragraph, block.inner(event_slot));
     }
 }
