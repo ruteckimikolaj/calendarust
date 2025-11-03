@@ -1,12 +1,12 @@
 use crate::{
     app::{App, InteractionMode},
-    ui::style::{focused_style, selection_style, PASTEL_CYAN},
+    ui::style::{focused_style, normal_style, selection_style, PASTEL_CYAN},
 };
 use chrono::{Datelike, Timelike};
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Cell, Row, Table},
+    widgets::{Block, Borders, Cell, Row, Table, BorderType},
     Frame,
 };
 
@@ -43,10 +43,10 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
     let mut rows = vec![];
     for hour in start_hour..end_hour {
         let time_text = format!("{:02}:00", hour);
-        let time_cell = Cell::from(time_text);
+        let time_cell = Cell::from(time_text).style(normal_style());
 
         let mut event_text = String::new();
-        let mut cell_style = Style::default();
+        let mut cell_style = normal_style();
 
         for event in &app.events {
             let event_start_hour = event.start_datetime.hour();
@@ -88,6 +88,7 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
+                .border_type(BorderType::Plain)
                 .border_style(Style::default().fg(Color::DarkGray))
                 .title(title),
         )

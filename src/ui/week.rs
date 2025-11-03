@@ -1,12 +1,12 @@
 use crate::{
     app::{App, InteractionMode},
-    ui::style::{focused_style, selection_style, PASTEL_CYAN, PASTEL_RED},
+    ui::style::{focused_style, normal_style, selection_style, PASTEL_CYAN, PASTEL_RED},
 };
 use chrono::{Datelike, Timelike, Weekday};
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Color, Style, Stylize},
-    widgets::{Block, Borders, Cell, Row, Table},
+    widgets::{Block, Borders, Cell, Row, Table, BorderType},
     Frame,
 };
 
@@ -42,12 +42,12 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
 
     let mut rows = vec![];
     for hour in start_hour..end_hour {
-        let mut row_cells = vec![Cell::from(format!("{:02}:00", hour))];
+        let mut row_cells = vec![Cell::from(format!("{:02}:00", hour)).style(normal_style())];
         for day_index in 0..7 {
             let current_day = first_day_of_week + chrono::Duration::days(day_index);
 
             let mut event_text = String::new();
-            let mut cell_style = Style::default();
+            let mut cell_style = normal_style();
 
             for event in &app.events {
                 if event.start_datetime.date_naive() == current_day
@@ -101,6 +101,7 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
+                .border_type(BorderType::Plain)
                 .border_style(Style::default().fg(Color::DarkGray))
                 .title(title),
         )

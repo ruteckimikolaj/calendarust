@@ -1,12 +1,12 @@
 use crate::{
     app::App,
-    ui::style::{selection_style, PASTEL_RED},
+    ui::style::{focused_style, normal_style, PASTEL_RED},
 };
 use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Cell, Row, Table},
+    widgets::{Block, Borders, Cell, Row, Table, BorderType},
     Frame,
 };
 
@@ -50,7 +50,9 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
     let weekday_of_first = first_day.weekday().num_days_from_monday();
 
     let mut rows = vec![];
-    let mut days: Vec<Cell> = (0..weekday_of_first).map(|_| Cell::from("")).collect();
+    let mut days: Vec<Cell> = (0..weekday_of_first)
+        .map(|_| Cell::from("").style(normal_style()))
+        .collect();
 
     let days_in_month = if month == 12 {
         NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap_or(first_day)
@@ -68,7 +70,9 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
         };
         let mut cell = Cell::from(day_str);
         if day as u32 == app.selected_date.day() {
-            cell = cell.style(selection_style());
+            cell = cell.style(focused_style());
+        } else {
+            cell = cell.style(normal_style());
         }
         days.push(cell);
         if days.len() == 7 {
@@ -79,7 +83,7 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
     if !days.is_empty() {
         let remaining_len = days.len();
         for _ in 0..(7 - remaining_len) {
-            days.push(Cell::from(""));
+            days.push(Cell::from("").style(normal_style()));
         }
         rows.push(Row::new(days.drain(..)).height(4));
     }
@@ -90,6 +94,7 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
         .block(
             Block::default()
                 .borders(Borders::ALL)
+                .border_type(BorderType::Plain)
                 .border_style(Style::default().fg(Color::DarkGray)),
         )
         .column_spacing(0)
