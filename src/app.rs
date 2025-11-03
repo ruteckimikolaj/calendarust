@@ -42,8 +42,6 @@ pub struct App<'a> {
     pub visible_end_hour: u32,
 }
 
-use crate::models::config::Config;
-
 impl<'a> App<'a> {
     pub fn new(conn: Connection) -> App<'a> {
         let config = load_config().unwrap_or_default();

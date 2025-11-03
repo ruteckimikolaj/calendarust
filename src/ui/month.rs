@@ -95,7 +95,7 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Plain)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(Style::default().fg(Color::Gray)),
         )
         .column_spacing(0)
 }

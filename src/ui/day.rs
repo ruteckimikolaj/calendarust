@@ -86,7 +86,7 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Plain)
-                .border_style(Style::default().fg(Color::DarkGray))
+                .border_style(Style::default().fg(Color::Gray))
                 .title(title),
         )
         .column_spacing(0);
