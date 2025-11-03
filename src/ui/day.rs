@@ -84,7 +84,13 @@ fn day_table<'a>(app: &App) -> Table<'a> {
                 row_style
             };
 
-            let event_cell = Cell::from(event_text).style(event_cell_style);
+            let event_text_with_markers = if is_selected || is_in_selection_range {
+                format!("> {} <", event_text)
+            } else {
+                event_text
+            };
+
+            let event_cell = Cell::from(event_text_with_markers).style(event_cell_style);
             let row = Row::new(vec![time_cell, event_cell]).height(1);
             rows.push(row);
         }

@@ -1,7 +1,7 @@
 use crate::{
     app::App,
     storage::db::get_events_in_range,
-    ui::style::{selected_style, thick_rounded_borders, PASTEL_CYAN},
+    ui::style::{selected_style, thick_rounded_borders, PASTEL_CYAN, PASTEL_RED},
 };
 use chrono::{Datelike, Weekday};
 use ratatui::{
@@ -26,6 +26,11 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn week_table<'a>(app: &App) -> Table<'a> {
+    let header_cells = ["Time", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        .iter()
+        .map(|h| Cell::from(*h).style(Style::default().fg(PASTEL_RED)));
+    let header = Row::new(header_cells).height(1).bottom_margin(1);
+
     let year = app.selected_date.year();
     let week = app.selected_date.iso_week().week();
     let first_day_of_week = chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Mon)
@@ -103,7 +108,12 @@ fn week_table<'a>(app: &App) -> Table<'a> {
                     cell_style
                 };
 
-                cells.push(Cell::from(event_text).style(final_style));
+                let event_text_with_markers = if is_selected || is_in_selection_range {
+                    format!("> {} <", event_text)
+                } else {
+                    event_text
+                };
+                cells.push(Cell::from(event_text_with_markers).style(final_style));
             }
             rows.push(Row::new(cells).height(1));
         }
@@ -120,6 +130,7 @@ fn week_table<'a>(app: &App) -> Table<'a> {
         Constraint::Percentage(13),
     ];
     Table::new(rows, constraints)
+        .header(header)
         .block(Block::default().borders(Borders::ALL))
         .column_spacing(1)
 }
