@@ -76,7 +76,7 @@ fn day_table<'a>(app: &App) -> Table<'a> {
                 false
             };
 
-            let final_style = if app.mode == InteractionMode::TimeSlot && is_in_selection_range {
+            let event_cell_style = if app.mode == InteractionMode::TimeSlot && is_in_selection_range {
                 selected_style()
             } else if app.mode != InteractionMode::TimeSlot && is_selected {
                 selected_style()
@@ -84,14 +84,14 @@ fn day_table<'a>(app: &App) -> Table<'a> {
                 row_style
             };
 
-            let event_cell = Cell::from(event_text);
-            let row = Row::new(vec![time_cell, event_cell])
-                .height(1)
-                .style(final_style);
+            let event_cell = Cell::from(event_text).style(event_cell_style);
+            let row = Row::new(vec![time_cell, event_cell]).height(1);
             rows.push(row);
         }
     }
 
     let constraints = vec![Constraint::Length(6), Constraint::Min(0)];
-    Table::new(rows, constraints).block(Block::default().borders(Borders::NONE))
+    Table::new(rows, constraints)
+        .block(Block::default().borders(Borders::ALL))
+        .column_spacing(1)
 }

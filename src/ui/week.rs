@@ -120,5 +120,6 @@ fn week_table<'a>(app: &App) -> Table<'a> {
         Constraint::Percentage(13),
     ];
     Table::new(rows, constraints)
-        .block(Block::default().borders(Borders::NONE))
+        .block(Block::default().borders(Borders::ALL))
+        .column_spacing(1)
 }
