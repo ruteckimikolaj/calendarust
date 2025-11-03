@@ -1,13 +1,13 @@
 use crate::{
-    app::App,
+    app::{App, InteractionMode},
     storage::db::get_events_in_range,
-    ui::style::{selected_style, thick_rounded_borders, PASTEL_CYAN},
+    ui::style::{focused_style, selection_style, thick_rounded_borders, PASTEL_CYAN},
 };
 use chrono::Datelike;
 use ratatui::{
-    layout::{Constraint, Rect},
-    style::Style,
-    widgets::{Block, Borders, Cell, Row, Table},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Style},
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
@@ -25,13 +25,9 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
     );
 
     let main_block = thick_rounded_borders().title(title);
+    let inner_area = main_block.inner(area);
     f.render_widget(main_block, area);
 
-    let table = day_table(app);
-    f.render_widget(table, area.inner(ratatui::layout::Margin { vertical: 1, horizontal: 1 }));
-}
-
-fn day_table<'a>(app: &App) -> Table<'a> {
     let start_timestamp = app
         .selected_date
         .and_hms_opt(0, 0, 0)
@@ -44,27 +40,72 @@ fn day_table<'a>(app: &App) -> Table<'a> {
         .unwrap_or_default();
 
     let events = get_events_in_range(&app.conn, start_timestamp, end_timestamp).unwrap_or_default();
-    let mut rows = vec![];
 
-    for hour in 0..24 {
-        for minute in [0, 30] {
-            let current_time = chrono::NaiveTime::from_hms_opt(hour, minute, 0).unwrap();
-            let time_cell = Cell::from(format!("{:02}:{:02}", hour, minute));
-            let mut event_text = String::new();
-            let mut row_style = Style::default();
+    let outer_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(6), Constraint::Min(0)])
+        .split(inner_area);
 
-            for event in &events {
-                let event_start_time = event.start_datetime.time();
-                let event_end_time = event.end_datetime.time();
-                if current_time >= event_start_time && current_time < event_end_time {
-                    event_text = event.title.clone();
-                    row_style = row_style.bg(PASTEL_CYAN);
-                }
+    let start_hour = app
+        .config
+        .calendar
+        .visible_hours_start
+        .split(':')
+        .next()
+        .and_then(|h| h.parse::<u32>().ok())
+        .unwrap_or(0);
+    let end_hour = app
+        .config
+        .calendar
+        .visible_hours_end
+        .split(':')
+        .next()
+        .and_then(|h| h.parse::<u32>().ok())
+        .unwrap_or(24);
+
+    let time_slots_count = ((end_hour - start_hour) * 2) as usize;
+    let time_slots_constraints = vec![Constraint::Length(1); time_slots_count];
+
+    let time_slots_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(time_slots_constraints.clone())
+        .split(outer_layout[0]);
+
+    let event_slots_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(time_slots_constraints)
+        .split(outer_layout[1]);
+
+    for i in 0..time_slots_count {
+        let time_slot = &time_slots_layout[i];
+        let event_slot = &event_slots_layout[i];
+        let hour = start_hour + (i as u32 / 2);
+        let minute = (i as u32 % 2) * 30;
+        let current_time = chrono::NaiveTime::from_hms_opt(hour as u32, minute as u32, 0).unwrap();
+
+        // --- Render Time Label ---
+        let time_text = format!("{:02}:{:02}", hour, minute);
+        let time_paragraph = Paragraph::new(time_text);
+        f.render_widget(time_paragraph, *time_slot);
+
+        // --- Render Event Cell ---
+        let mut event_text = String::new();
+        let mut cell_style = Style::default();
+
+        for event in &events {
+            let event_start_time = event.start_datetime.time();
+            let event_end_time = event.end_datetime.time();
+            if current_time >= event_start_time && current_time < event_end_time {
+                event_text = event.title.clone();
+                cell_style = cell_style.bg(PASTEL_CYAN);
             }
+        }
 
-            let is_selected = app.selected_time == current_time;
-            let is_in_selection_range = if let Some(start_time) = app.selection_start {
-                let (start, end) = if start_time < app.selected_time {
+        let is_focused = app.selected_time == current_time;
+
+        let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
+            if let Some(start_time) = app.selection_start {
+                let (start, end) = if start_time <= app.selected_time {
                     (start_time, app.selected_time)
                 } else {
                     (app.selected_time, start_time)
@@ -72,30 +113,21 @@ fn day_table<'a>(app: &App) -> Table<'a> {
                 current_time >= start && current_time <= end
             } else {
                 false
-            };
+            }
+        } else {
+            false
+        };
 
-            let event_cell_style = if is_selected {
-                selected_style()
-            } else if is_in_selection_range {
-                selected_style()
-            } else {
-                row_style
-            };
-
-            let event_text_with_markers = if is_selected || is_in_selection_range {
-                format!("> {} <", event_text)
-            } else {
-                event_text
-            };
-
-            let event_cell = Cell::from(event_text_with_markers).style(event_cell_style);
-            let row = Row::new(vec![time_cell, event_cell]).height(1);
-            rows.push(row);
+        let mut block = Block::default().borders(Borders::ALL);
+        if is_focused {
+            block = block.border_style(focused_style());
         }
-    }
+        if is_in_selection_range {
+            cell_style = selection_style();
+        }
 
-    let constraints = vec![Constraint::Length(6), Constraint::Min(0)];
-    Table::new(rows, constraints)
-        .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Thick))
-        .column_spacing(1)
+        let event_paragraph = Paragraph::new(event_text).style(cell_style);
+        f.render_widget(block.clone(), *event_slot);
+        f.render_widget(event_paragraph, block.inner(*event_slot));
+    }
 }

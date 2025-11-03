@@ -1,7 +1,7 @@
 use crate::{
     app::App,
     storage::db::get_events_in_range,
-    ui::style::{selected_style, thick_rounded_borders, PASTEL_RED},
+    ui::style::{selection_style, thick_rounded_borders, PASTEL_RED},
 };
 use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
@@ -91,7 +91,7 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
         };
         let mut cell = Cell::from(day_str);
         if day as u32 == app.selected_date.day() {
-            cell = cell.style(selected_style());
+            cell = cell.style(selection_style());
         }
         days.push(cell);
         if days.len() == 7 {

@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    ui::style::{selected_style, thick_rounded_borders},
+    ui::style::{selection_style, thick_rounded_borders},
 };
 use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
@@ -82,7 +82,7 @@ fn mini_month_table<'a>(year: i32, month: u32, is_selected: bool) -> Table<'a> {
 
     let block = Block::default().title(month_name).borders(Borders::ALL);
     let table_block = if is_selected {
-        block.style(selected_style())
+        block.style(selection_style())
     } else {
         block
     };

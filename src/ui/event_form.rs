@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    ui::style::{selected_style, thick_rounded_borders},
+    ui::style::{selection_style, thick_rounded_borders},
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -45,17 +45,17 @@ pub fn draw_event_form(f: &mut Frame, app: &mut App, area: Rect) {
         let location_block = Block::default().borders(Borders::ALL).title(" Location ");
 
         form_state.title.set_block(if form_state.focused_field == 0 {
-            title_block.style(selected_style())
+            title_block.style(selection_style())
         } else {
             title_block
         });
         form_state.description.set_block(if form_state.focused_field == 1 {
-            description_block.style(selected_style())
+            description_block.style(selection_style())
         } else {
             description_block
         });
         form_state.location.set_block(if form_state.focused_field == 2 {
-            location_block.style(selected_style())
+            location_block.style(selection_style())
         } else {
             location_block
         });

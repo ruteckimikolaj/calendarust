@@ -8,8 +8,13 @@ pub const VIBRANT_YELLOW: Color = Color::Rgb(255, 204, 0);
 pub const PASTEL_BLUE: Color = Color::Rgb(102, 102, 255);
 pub const PASTEL_CYAN: Color = Color::Rgb(102, 255, 255);
 
-// Selected style
-pub fn selected_style() -> Style {
+// Style for the navigation cursor
+pub fn focused_style() -> Style {
+    Style::default().fg(PASTEL_CYAN)
+}
+
+// Style for a confirmed selection
+pub fn selection_style() -> Style {
     Style::default()
         .fg(PASTEL_BLACK)
         .bg(VIBRANT_YELLOW)
