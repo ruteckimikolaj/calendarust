@@ -11,6 +11,7 @@ pub enum AppState {
     Day,
 }
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum InteractionMode {
     Navigation,
     Selection,

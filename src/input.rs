@@ -145,12 +145,7 @@ fn handle_selection_input(key: KeyEvent, app: &mut App) {
                     .unwrap_or(app.selected_date)
             }
             AppState::Month => app.selected_date -= Duration::weeks(1),
-            AppState::Week | AppState::Day => {
-                app.selected_time = app
-                    .selected_time
-                    .overflowing_sub_signed(Duration::minutes(30))
-                    .0
-            }
+            _ => {}
         },
         KeyCode::Down => match app.state {
             AppState::Year => {
@@ -160,12 +155,7 @@ fn handle_selection_input(key: KeyEvent, app: &mut App) {
                     .unwrap_or(app.selected_date)
             }
             AppState::Month => app.selected_date += Duration::weeks(1),
-            AppState::Week | AppState::Day => {
-                app.selected_time = app
-                    .selected_time
-                    .overflowing_add_signed(Duration::minutes(30))
-                    .0
-            }
+            _ => {}
         },
         KeyCode::Char('e') | KeyCode::Char('d') => {
             let start_of_slot = app.selected_date.and_time(app.selected_time);
@@ -237,42 +227,71 @@ fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
     }
 }
 
+use crossterm::event::KeyModifiers;
+
 fn handle_event_form_input<'a>(key: KeyEvent, app: &mut App<'a>) {
     if let Some(form_state) = &mut app.event_form_state {
         match key.code {
             KeyCode::Esc => {
                 app.mode = InteractionMode::Navigation;
                 app.event_form_state = None;
+                app.selected_event_id = None;
             }
             KeyCode::Tab => {
-                form_state.focused_field = (form_state.focused_field + 1) % 3;
+                if key.modifiers == KeyModifiers::SHIFT {
+                    form_state.focused_field = (form_state.focused_field + 2) % 3;
+                } else {
+                    form_state.focused_field = (form_state.focused_field + 1) % 3;
+                }
             }
             KeyCode::Enter => {
-                let event = Event {
-                    id: app.selected_event_id,
-                    title: form_state.title.lines().join("\n"),
-                    description: Some(form_state.description.lines().join("\n")),
-                    start_datetime: Utc.from_utc_datetime(&form_state.start_datetime),
-                    end_datetime: Utc.from_utc_datetime(&form_state.end_datetime),
-                    location: Some(form_state.location.lines().join("\n")),
-                    created_at: Utc::now(),
-                    updated_at: Utc::now(),
-                };
-                if event.id.is_some() {
-                    let _ = update_event(&app.conn, &event);
+                if form_state.focused_field > 0 {
+                    // Allow newline in description and location
+                    let key_event: tui_textarea::Input = key.into();
+                    match form_state.focused_field {
+                        1 => {
+                            form_state.description.input(key_event);
+                        }
+                        2 => {
+                            form_state.location.input(key_event);
+                        }
+                        _ => {}
+                    }
                 } else {
-                    let _ = create_event(&app.conn, &event);
+                    // Submit form
+                    let event = Event {
+                        id: app.selected_event_id,
+                        title: form_state.title.lines().join("\n"),
+                        description: Some(form_state.description.lines().join("\n")),
+                        start_datetime: Utc.from_utc_datetime(&form_state.start_datetime),
+                        end_datetime: Utc.from_utc_datetime(&form_state.end_datetime),
+                        location: Some(form_state.location.lines().join("\n")),
+                        created_at: Utc::now(),
+                        updated_at: Utc::now(),
+                    };
+                    if event.id.is_some() {
+                        let _ = update_event(&app.conn, &event);
+                    } else {
+                        let _ = create_event(&app.conn, &event);
+                    }
+                    app.mode = InteractionMode::Navigation;
+                    app.event_form_state = None;
+                    app.selected_event_id = None;
                 }
-                app.mode = InteractionMode::Navigation;
-                app.event_form_state = None;
             }
             _ => {
                 let key_event: tui_textarea::Input = key.into();
                 match form_state.focused_field {
-                    0 => form_state.title.input(key_event),
-                    1 => form_state.description.input(key_event),
-                    2 => form_state.location.input(key_event),
-                    _ => false,
+                    0 => {
+                        form_state.title.input(key_event);
+                    }
+                    1 => {
+                        form_state.description.input(key_event);
+                    }
+                    2 => {
+                        form_state.location.input(key_event);
+                    }
+                    _ => {}
                 };
             }
         }

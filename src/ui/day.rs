@@ -1,9 +1,9 @@
 use crate::{
     app::App,
     storage::db::get_events_in_range,
-    ui::style::{selected_style, thick_rounded_borders, PASTEL_CYAN, PASTEL_RED},
+    ui::style::{selected_style, thick_rounded_borders, PASTEL_CYAN},
 };
-use chrono::{Datelike, Timelike};
+use chrono::Datelike;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
@@ -11,12 +11,15 @@ use ratatui::{
     Frame,
 };
 
+use crate::app::InteractionMode;
+use ratatui::widgets::Paragraph;
+
 pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let month = app.selected_date.month();
     let day = app.selected_date.day();
     let title = format!(
-        "{} {}, {}",
+        " {} {}, {} ",
         chrono::Month::try_from(month as u8)
             .unwrap_or(chrono::Month::January)
             .name(),
@@ -26,22 +29,28 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(0)].as_ref())
+        .constraints([Constraint::Min(0), Constraint::Length(3)].as_ref())
         .split(area);
 
-    let header_block = Block::default().title(title).borders(Borders::NONE);
-    f.render_widget(header_block, chunks[0]);
+    let main_block = thick_rounded_borders().title(title);
+    f.render_widget(main_block, area);
 
     let table = day_table(app);
-    f.render_widget(table, chunks[1]);
+    f.render_widget(table, chunks[0].inner(ratatui::layout::Margin { vertical: 1, horizontal: 1 }));
+
+    let footer_text = match app.mode {
+        InteractionMode::Navigation => "Controls: [↑/↓] Navigate | [Enter] Select | [q] Quit",
+        InteractionMode::Selection => "Controls: [↑/↓] Navigate | [Enter] Start Event | [Esc] Cancel",
+        InteractionMode::TimeSlot => "Controls: [↑/↓] Adjust End Time | [Enter] Confirm | [Esc] Cancel",
+        _ => "",
+    };
+
+    let footer = Paragraph::new(footer_text)
+        .block(thick_rounded_borders().title(" Controls "));
+    f.render_widget(footer, chunks[1]);
 }
 
 fn day_table<'a>(app: &App) -> Table<'a> {
-    let header_cells = ["Time", "Event"]
-        .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(PASTEL_RED)));
-    let header = Row::new(header_cells).height(1).bottom_margin(1);
-
     let start_timestamp = app
         .selected_date
         .and_hms_opt(0, 0, 0)
@@ -54,11 +63,11 @@ fn day_table<'a>(app: &App) -> Table<'a> {
         .unwrap_or_default();
 
     let events = get_events_in_range(&app.conn, start_timestamp, end_timestamp).unwrap_or_default();
-
     let mut rows = vec![];
 
     for hour in 0..24 {
         for minute in [0, 30] {
+            let current_time = chrono::NaiveTime::from_hms_opt(hour, minute, 0).unwrap();
             let time_cell = Cell::from(format!("{:02}:{:02}", hour, minute));
             let mut event_text = String::new();
             let mut row_style = Style::default();
@@ -66,27 +75,40 @@ fn day_table<'a>(app: &App) -> Table<'a> {
             for event in &events {
                 let event_start_time = event.start_datetime.time();
                 let event_end_time = event.end_datetime.time();
-                if let Some(current_time) = chrono::NaiveTime::from_hms_opt(hour, minute, 0) {
-                    if current_time >= event_start_time && current_time < event_end_time {
-                        event_text = event.title.clone();
-                        row_style = row_style.bg(PASTEL_CYAN);
-                    }
+                if current_time >= event_start_time && current_time < event_end_time {
+                    event_text = event.title.clone();
+                    row_style = row_style.bg(PASTEL_CYAN);
                 }
             }
-            let event_cell = Cell::from(event_text);
-            let mut row = Row::new(vec![time_cell, event_cell]).height(2);
-            if hour == app.selected_time.hour() && minute == app.selected_time.minute() {
-                row = row.style(selected_style());
+
+            let is_selected = app.selected_time == current_time;
+            let is_in_selection_range = if let Some(start_time) = app.selection_start {
+                let (start, end) = if start_time < app.selected_time {
+                    (start_time, app.selected_time)
+                } else {
+                    (app.selected_time, start_time)
+                };
+                current_time >= start && current_time <= end
             } else {
-                row = row.style(row_style);
-            }
+                false
+            };
+
+            let final_style = if app.mode == InteractionMode::TimeSlot && is_in_selection_range {
+                selected_style()
+            } else if app.mode != InteractionMode::TimeSlot && is_selected {
+                selected_style()
+            } else {
+                row_style
+            };
+
+            let event_cell = Cell::from(event_text);
+            let row = Row::new(vec![time_cell, event_cell])
+                .height(1)
+                .style(final_style);
             rows.push(row);
         }
     }
 
-    let constraints = vec![Constraint::Length(6), Constraint::Percentage(90)];
-    Table::new(rows, constraints)
-        .header(header)
-        .block(thick_rounded_borders())
-        .column_spacing(1)
+    let constraints = vec![Constraint::Length(6), Constraint::Min(0)];
+    Table::new(rows, constraints).block(Block::default().borders(Borders::NONE))
 }
