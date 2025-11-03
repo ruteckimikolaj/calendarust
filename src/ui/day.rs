@@ -2,7 +2,7 @@ use crate::{
     app::{App, InteractionMode},
     ui::style::{focused_style, normal_style, selection_style, PASTEL_CYAN},
 };
-use chrono::{Datelike, Timelike};
+use chrono::{Datelike, Local, Timelike};
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Color, Style},
@@ -36,9 +36,10 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
             let mut cell_style = normal_style();
 
             for event in &app.events {
-                let event_start_hour = event.start_datetime.hour();
-                let event_start_minute = event.start_datetime.minute();
-                if event.start_datetime.date_naive() == app.selected_date
+                let local_start_time = event.start_datetime.with_timezone(&Local);
+                let event_start_hour = local_start_time.hour();
+                let event_start_minute = local_start_time.minute();
+                if local_start_time.date_naive() == app.selected_date
                     && event_start_hour == hour
                     && event_start_minute == *minute
                 {
@@ -67,10 +68,11 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
             };
 
         let mut event_cell = Cell::from(event_text);
+        if is_focused {
+            cell_style = focused_style();
+        }
         if is_in_selection_range {
             cell_style = selection_style();
-        } else if is_focused {
-            cell_style = focused_style();
         }
         event_cell = event_cell.style(cell_style);
 

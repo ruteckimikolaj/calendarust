@@ -42,9 +42,11 @@ pub struct App<'a> {
     pub visible_end_hour: u32,
 }
 
+use crate::models::config::Config;
+
 impl<'a> App<'a> {
     pub fn new(conn: Connection) -> App<'a> {
-        let config = load_config().unwrap();
+        let config = load_config().unwrap_or_default();
         let default_view = match config.ui.default_view.as_str() {
             "year" => AppState::Year,
             "month" => AppState::Month,

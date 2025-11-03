@@ -2,7 +2,7 @@ use crate::{
     app::{App, InteractionMode},
     ui::style::{focused_style, normal_style, selection_style, PASTEL_CYAN, PASTEL_RED},
 };
-use chrono::{Datelike, Timelike, Weekday};
+use chrono::{Datelike, Local, Timelike, Weekday};
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Color, Style, Stylize},
@@ -38,9 +38,10 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
                 let mut cell_style = normal_style();
 
                 for event in &app.events {
-                    if event.start_datetime.date_naive() == current_day
-                        && event.start_datetime.hour() == hour
-                        && event.start_datetime.minute() == *minute
+                    let local_start_time = event.start_datetime.with_timezone(&Local);
+                    if local_start_time.date_naive() == current_day
+                        && local_start_time.hour() == hour
+                        && local_start_time.minute() == *minute
                     {
                         event_text = event.title.clone();
                         cell_style = cell_style.bg(PASTEL_CYAN);
@@ -67,10 +68,11 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
                     false
                 };
 
+            if is_focused {
+                cell_style = focused_style();
+            }
             if is_in_selection_range {
                 cell_style = selection_style();
-            } else if is_focused {
-                cell_style = focused_style();
             }
 
             row_cells.push(Cell::from(event_text).style(cell_style));
