@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
 };
 
-pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
+pub fn draw_week_view(f: &mut Frame, app: &mut App, area:Rect) {
     let year = app.selected_date.year();
     let week = app.selected_date.iso_week().week();
     let title = format!(" Year {} - Week {} ", year, week);
@@ -48,9 +48,6 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
                     }
                 }
 
-                let is_focused = app.selected_date == current_day
-                    && app.selected_time.hour() == hour
-                    && app.selected_time.minute() == *minute;
                 let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
                     if let Some(start_time) = app.selection_start {
                         let start = start_time.hour() * 60 + start_time.minute();
@@ -68,6 +65,9 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
                     false
                 };
 
+            let is_focused = app.selected_date == current_day
+                && app.selected_time.hour() == hour
+                && app.selected_time.minute() == *minute;
             if is_focused {
                 cell_style = cell_style.patch(focused_style());
             }
