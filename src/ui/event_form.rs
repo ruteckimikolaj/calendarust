@@ -63,10 +63,6 @@ pub fn draw_event_form(f: &mut Frame, app: &mut App, area: Rect) {
         f.render_widget(&form_state.title, form_chunks[1]);
         f.render_widget(&form_state.description, form_chunks[2]);
         f.render_widget(&form_state.location, form_chunks[3]);
-
-        let footer = Paragraph::new("Controls: [Tab] Navigate | [Enter] Submit | [Esc] Cancel")
-            .block(thick_rounded_borders().title(" Controls "));
-        f.render_widget(footer, form_chunks[5]);
     }
 }
 

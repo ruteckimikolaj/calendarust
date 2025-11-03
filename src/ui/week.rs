@@ -5,41 +5,24 @@ use crate::{
 };
 use chrono::{Datelike, Weekday};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Rect},
     style::Style,
     widgets::{Block, Borders, Cell, Row, Table},
     Frame,
 };
 
 use crate::app::InteractionMode;
-use ratatui::widgets::Paragraph;
 
 pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let week = app.selected_date.iso_week().week();
     let title = format!(" Year {} - Week {} ", year, week);
 
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)].as_ref())
-        .split(area);
-
     let main_block = thick_rounded_borders().title(title);
     f.render_widget(main_block, area);
 
     let table = week_table(app);
-    f.render_widget(table, chunks[0].inner(ratatui::layout::Margin { vertical: 1, horizontal: 1 }));
-
-    let footer_text = match app.mode {
-        InteractionMode::Navigation => "Controls: [↑/↓] Navigate | [Enter] Select | [q] Quit",
-        InteractionMode::Selection => "Controls: [↑/↓] Navigate | [Enter] Start Event | [Esc] Cancel",
-        InteractionMode::TimeSlot => "Controls: [↑/↓] Adjust End Time | [Enter] Confirm | [Esc] Cancel",
-        _ => "",
-    };
-
-    let footer = Paragraph::new(footer_text)
-        .block(thick_rounded_borders().title(" Controls "));
-    f.render_widget(footer, chunks[1]);
+    f.render_widget(table, area.inner(ratatui::layout::Margin { vertical: 1, horizontal: 1 }));
 }
 
 fn week_table<'a>(app: &App) -> Table<'a> {

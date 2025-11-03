@@ -8,6 +8,11 @@ use crossterm::event::{KeyCode, KeyEvent};
 use tui_textarea::TextArea;
 
 pub fn handle_input<'a>(key: KeyEvent, app: &mut App<'a>) {
+    if app.mode == InteractionMode::EventForm {
+        handle_event_form_input(key, app);
+        return;
+    }
+
     if key.code == KeyCode::Tab {
         app.state = match app.state {
             AppState::Year => AppState::Month,
@@ -17,11 +22,12 @@ pub fn handle_input<'a>(key: KeyEvent, app: &mut App<'a>) {
         };
         return;
     }
+
     match app.mode {
         InteractionMode::Navigation => handle_navigation_input(key, app),
         InteractionMode::Selection => handle_selection_input(key, app),
         InteractionMode::TimeSlot => handle_timeslot_input(key, app),
-        InteractionMode::EventForm => handle_event_form_input(key, app),
+        _ => {}
     }
 }
 
@@ -68,7 +74,10 @@ fn handle_navigation_input(key: KeyEvent, app: &mut App) {
             _ => {}
         },
         AppState::Month => match key.code {
-            KeyCode::Enter => app.mode = InteractionMode::Selection,
+            KeyCode::Enter => {
+                app.state = AppState::Day;
+                app.mode = InteractionMode::Navigation;
+            }
             KeyCode::Left => app.selected_date -= Duration::days(1),
             KeyCode::Right => app.selected_date += Duration::days(1),
             KeyCode::Up => app.selected_date -= Duration::weeks(1),
@@ -76,11 +85,63 @@ fn handle_navigation_input(key: KeyEvent, app: &mut App) {
             _ => {}
         },
         AppState::Week | AppState::Day => match key.code {
-            KeyCode::Enter => app.mode = InteractionMode::Selection,
+            KeyCode::Char('n') => {
+                app.mode = InteractionMode::TimeSlot;
+                app.selection_start = Some(app.selected_time);
+            }
+            KeyCode::Char('e') => {
+                let start_of_slot = app.selected_date.and_time(app.selected_time);
+                let end_of_slot = start_of_slot + Duration::minutes(30);
+                let start_timestamp = start_of_slot.and_utc().timestamp();
+                let end_timestamp = end_of_slot.and_utc().timestamp();
+
+                if let Ok(events) = get_events_in_range(&app.conn, start_timestamp, end_timestamp) {
+                    if let Some(event) = events.first() {
+                        app.mode = InteractionMode::EventForm;
+                        app.event_form_state = Some(EventFormState {
+                            title: TextArea::from(event.title.lines().map(|s| s.to_string())),
+                            description: TextArea::from(
+                                event.description.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
+                            ),
+                            location: TextArea::from(
+                                event.location.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
+                            ),
+                            start_datetime: event.start_datetime.naive_utc(),
+                            end_datetime: event.end_datetime.naive_utc(),
+                            focused_field: 0,
+                        });
+                        app.selected_event_id = event.id;
+                    }
+                }
+            }
+            KeyCode::Char('d') => {
+                let start_of_slot = app.selected_date.and_time(app.selected_time);
+                let end_of_slot = start_of_slot + Duration::minutes(30);
+                let start_timestamp = start_of_slot.and_utc().timestamp();
+                let end_timestamp = end_of_slot.and_utc().timestamp();
+
+                if let Ok(events) = get_events_in_range(&app.conn, start_timestamp, end_timestamp) {
+                    if let Some(event) = events.first() {
+                        if let Some(id) = event.id {
+                            let _ = delete_event(&app.conn, id);
+                        }
+                    }
+                }
+            }
             KeyCode::Left => app.selected_date -= Duration::days(1),
             KeyCode::Right => app.selected_date += Duration::days(1),
-            KeyCode::Up => app.selected_time = app.selected_time.overflowing_sub_signed(Duration::minutes(30)).0,
-            KeyCode::Down => app.selected_time = app.selected_time.overflowing_add_signed(Duration::minutes(30)).0,
+            KeyCode::Up => {
+                app.selected_time = app
+                    .selected_time
+                    .overflowing_sub_signed(Duration::minutes(30))
+                    .0
+            }
+            KeyCode::Down => {
+                app.selected_time = app
+                    .selected_time
+                    .overflowing_add_signed(Duration::minutes(30))
+                    .0
+            }
             _ => {}
         },
     }
@@ -101,93 +162,9 @@ fn handle_selection_input(key: KeyEvent, app: &mut App) {
                 app.mode = InteractionMode::Navigation;
             }
             AppState::Week | AppState::Day => {
-                app.mode = InteractionMode::TimeSlot;
-                app.selection_start = Some(app.selected_time);
+                // In Day/Week view, Enter is handled in TimeSlot mode
             }
         },
-        KeyCode::Left => match app.state {
-            AppState::Year => {
-                app.selected_date = app
-                    .selected_date
-                    .with_month(app.selected_date.month() - 1)
-                    .unwrap_or_else(|| {
-                        app.selected_date
-                            .with_year(app.selected_date.year() - 1)
-                            .unwrap()
-                            .with_month(12)
-                            .unwrap()
-                    })
-            }
-            AppState::Month => app.selected_date -= Duration::days(1),
-            _ => {}
-        },
-        KeyCode::Right => match app.state {
-            AppState::Year => {
-                app.selected_date = app
-                    .selected_date
-                    .with_month(app.selected_date.month() + 1)
-                    .unwrap_or_else(|| {
-                        app.selected_date
-                            .with_year(app.selected_date.year() + 1)
-                            .unwrap()
-                            .with_month(1)
-                            .unwrap()
-                    })
-            }
-            AppState::Month => app.selected_date += Duration::days(1),
-            _ => {}
-        },
-        KeyCode::Up => match app.state {
-            AppState::Year => {
-                app.selected_date = app
-                    .selected_date
-                    .with_year(app.selected_date.year() - 3)
-                    .unwrap_or(app.selected_date)
-            }
-            AppState::Month => app.selected_date -= Duration::weeks(1),
-            _ => {}
-        },
-        KeyCode::Down => match app.state {
-            AppState::Year => {
-                app.selected_date = app
-                    .selected_date
-                    .with_year(app.selected_date.year() + 3)
-                    .unwrap_or(app.selected_date)
-            }
-            AppState::Month => app.selected_date += Duration::weeks(1),
-            _ => {}
-        },
-        KeyCode::Char('e') | KeyCode::Char('d') => {
-            let start_of_slot = app.selected_date.and_time(app.selected_time);
-            let end_of_slot = start_of_slot + Duration::minutes(30);
-            let start_timestamp = start_of_slot.and_utc().timestamp();
-            let end_timestamp = end_of_slot.and_utc().timestamp();
-
-            if let Ok(events) = get_events_in_range(&app.conn, start_timestamp, end_timestamp) {
-                if let Some(event) = events.first() {
-                    if key.code == KeyCode::Char('e') {
-                        app.mode = InteractionMode::EventForm;
-                        app.event_form_state = Some(EventFormState {
-                            title: TextArea::from(event.title.lines().map(|s| s.to_string())),
-                            description: TextArea::from(
-                                event.description.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
-                            ),
-                            location: TextArea::from(
-                                event.location.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
-                            ),
-                            start_datetime: event.start_datetime.naive_utc(),
-                            end_datetime: event.end_datetime.naive_utc(),
-                            focused_field: 0,
-                        });
-                        app.selected_event_id = event.id;
-                    } else if key.code == KeyCode::Char('d') {
-                        if let Some(id) = event.id {
-                            let _ = delete_event(&app.conn, id);
-                        }
-                    }
-                }
-            }
-        }
         _ => {}
     }
 }
