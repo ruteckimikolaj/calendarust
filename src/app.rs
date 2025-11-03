@@ -1,4 +1,4 @@
-use crate::{models::config::Config, models::event::Event};
+use crate::{models::config::load_config, models::event::Event};
 use chrono::{Datelike, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 use tui_textarea::TextArea;
@@ -31,7 +31,6 @@ pub struct EventFormState<'a> {
 pub struct App<'a> {
     pub state: AppState,
     pub mode: InteractionMode,
-    pub config: Config,
     pub conn: Connection,
     pub event_form_state: Option<EventFormState<'a>>,
     pub selected_event_id: Option<i64>,
@@ -39,10 +38,13 @@ pub struct App<'a> {
     pub selected_time: NaiveTime,
     pub selection_start: Option<NaiveTime>,
     pub events: Vec<Event>,
+    pub visible_start_hour: u32,
+    pub visible_end_hour: u32,
 }
 
 impl<'a> App<'a> {
-    pub fn new(config: Config, conn: Connection) -> App<'a> {
+    pub fn new(conn: Connection) -> App<'a> {
+        let config = load_config().unwrap();
         let default_view = match config.ui.default_view.as_str() {
             "year" => AppState::Year,
             "month" => AppState::Month,
@@ -54,7 +56,6 @@ impl<'a> App<'a> {
         App {
             state: default_view,
             mode: InteractionMode::Navigation,
-            config,
             conn,
             event_form_state: None,
             selected_event_id: None,
@@ -62,6 +63,22 @@ impl<'a> App<'a> {
             selected_time: chrono::Local::now().naive_local().time(),
             selection_start: None,
             events: vec![],
+            visible_start_hour: 6,
+            visible_end_hour: 18,
+        }
+    }
+
+    pub fn scroll_up(&mut self) {
+        if self.visible_start_hour > 0 {
+            self.visible_start_hour -= 1;
+            self.visible_end_hour -= 1;
+        }
+    }
+
+    pub fn scroll_down(&mut self) {
+        if self.visible_end_hour < 24 {
+            self.visible_start_hour += 1;
+            self.visible_end_hour += 1;
         }
     }
 

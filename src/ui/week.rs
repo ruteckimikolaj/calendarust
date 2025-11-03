@@ -23,57 +23,49 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
         .map(|h| Cell::from(*h).style(Style::default().fg(PASTEL_RED).bold()));
     let header = Row::new(header_cells).height(1);
 
-    let start_hour = app
-        .config
-        .calendar
-        .visible_hours_start
-        .split(':')
-        .next()
-        .and_then(|h| h.parse::<u32>().ok())
-        .unwrap_or(0);
-    let end_hour = app
-        .config
-        .calendar
-        .visible_hours_end
-        .split(':')
-        .next()
-        .and_then(|h| h.parse::<u32>().ok())
-        .unwrap_or(24);
+    let start_hour = app.visible_start_hour;
+    let end_hour = app.visible_end_hour;
 
     let mut rows = vec![];
     for hour in start_hour..end_hour {
-        let mut row_cells = vec![Cell::from(format!("{:02}:00", hour)).style(normal_style())];
-        for day_index in 0..7 {
-            let current_day = first_day_of_week + chrono::Duration::days(day_index);
+        for minute in [0, 30].iter() {
+            let mut row_cells =
+                vec![Cell::from(format!("{:02}:{:02}", hour, minute)).style(normal_style())];
+            for day_index in 0..7 {
+                let current_day = first_day_of_week + chrono::Duration::days(day_index);
 
-            let mut event_text = String::new();
-            let mut cell_style = normal_style();
+                let mut event_text = String::new();
+                let mut cell_style = normal_style();
 
-            for event in &app.events {
-                if event.start_datetime.date_naive() == current_day
-                    && event.start_datetime.hour() == hour
-                {
-                    event_text = event.title.clone();
-                    cell_style = cell_style.bg(PASTEL_CYAN);
+                for event in &app.events {
+                    if event.start_datetime.date_naive() == current_day
+                        && event.start_datetime.hour() == hour
+                        && event.start_datetime.minute() == *minute
+                    {
+                        event_text = event.title.clone();
+                        cell_style = cell_style.bg(PASTEL_CYAN);
+                    }
                 }
-            }
 
-            let is_focused =
-                app.selected_date == current_day && app.selected_time.hour() == hour;
-            let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
-                if let Some(start_time) = app.selection_start {
-                    let (start, end) = if start_time <= app.selected_time {
-                        (start_time.hour(), app.selected_time.hour())
+                let is_focused = app.selected_date == current_day
+                    && app.selected_time.hour() == hour
+                    && app.selected_time.minute() == *minute;
+                let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
+                    if let Some(start_time) = app.selection_start {
+                        let start = start_time.hour() * 60 + start_time.minute();
+                        let end = app.selected_time.hour() * 60 + app.selected_time.minute();
+                        let current = hour * 60 + minute;
+                        if start <= end {
+                            current >= start && current <= end
+                        } else {
+                            current >= end && current <= start
+                        }
                     } else {
-                        (app.selected_time.hour(), start_time.hour())
-                    };
-                    app.selected_date == current_day && hour >= start && hour <= end
+                        false
+                    }
                 } else {
                     false
-                }
-            } else {
-                false
-            };
+                };
 
             if is_in_selection_range {
                 cell_style = selection_style();
@@ -84,6 +76,7 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
             row_cells.push(Cell::from(event_text).style(cell_style));
         }
         rows.push(Row::new(row_cells).height(1));
+        }
     }
 
     let constraints = [

@@ -23,54 +23,48 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         year
     );
 
-    let start_hour = app
-        .config
-        .calendar
-        .visible_hours_start
-        .split(':')
-        .next()
-        .and_then(|h| h.parse::<u32>().ok())
-        .unwrap_or(0);
-    let end_hour = app
-        .config
-        .calendar
-        .visible_hours_end
-        .split(':')
-        .next()
-        .and_then(|h| h.parse::<u32>().ok())
-        .unwrap_or(24);
+    let start_hour = app.visible_start_hour;
+    let end_hour = app.visible_end_hour;
 
     let mut rows = vec![];
     for hour in start_hour..end_hour {
-        let time_text = format!("{:02}:00", hour);
-        let time_cell = Cell::from(time_text).style(normal_style());
+        for minute in [0, 30].iter() {
+            let time_text = format!("{:02}:{:02}", hour, minute);
+            let time_cell = Cell::from(time_text).style(normal_style());
 
-        let mut event_text = String::new();
-        let mut cell_style = normal_style();
+            let mut event_text = String::new();
+            let mut cell_style = normal_style();
 
-        for event in &app.events {
-            let event_start_hour = event.start_datetime.hour();
-            if event.start_datetime.date_naive() == app.selected_date && event_start_hour == hour {
-                event_text = event.title.clone();
-                cell_style = cell_style.bg(PASTEL_CYAN);
+            for event in &app.events {
+                let event_start_hour = event.start_datetime.hour();
+                let event_start_minute = event.start_datetime.minute();
+                if event.start_datetime.date_naive() == app.selected_date
+                    && event_start_hour == hour
+                    && event_start_minute == *minute
+                {
+                    event_text = event.title.clone();
+                    cell_style = cell_style.bg(PASTEL_CYAN);
+                }
             }
-        }
 
-        let is_focused = app.selected_time.hour() == hour;
-        let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
-            if let Some(start_time) = app.selection_start {
-                let (start, end) = if start_time <= app.selected_time {
-                    (start_time.hour(), app.selected_time.hour())
+            let is_focused =
+                app.selected_time.hour() == hour && app.selected_time.minute() == *minute;
+            let is_in_selection_range = if app.mode == InteractionMode::TimeSlot {
+                if let Some(start_time) = app.selection_start {
+                    let start = start_time.hour() * 60 + start_time.minute();
+                    let end = app.selected_time.hour() * 60 + app.selected_time.minute();
+                    let current = hour * 60 + minute;
+                    if start <= end {
+                        current >= start && current <= end
+                    } else {
+                        current >= end && current <= start
+                    }
                 } else {
-                    (app.selected_time.hour(), start_time.hour())
-                };
-                hour >= start && hour <= end
+                    false
+                }
             } else {
                 false
-            }
-        } else {
-            false
-        };
+            };
 
         let mut event_cell = Cell::from(event_text);
         if is_in_selection_range {
@@ -81,6 +75,7 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         event_cell = event_cell.style(cell_style);
 
         rows.push(Row::new(vec![time_cell, event_cell]).height(1));
+        }
     }
 
     let constraints = [Constraint::Length(6), Constraint::Min(0)];

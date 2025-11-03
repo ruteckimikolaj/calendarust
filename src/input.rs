@@ -138,15 +138,15 @@ fn handle_navigation_input(key: KeyEvent, app: &mut App) {
                 }
             }
             KeyCode::Up => {
-                let start_hour = app.config.calendar.visible_hours_start.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(0);
-                if app.selected_time.hour() > start_hour {
-                    app.selected_time -= Duration::hours(1);
+                app.selected_time -= Duration::minutes(30);
+                if app.selected_time.hour() < app.visible_start_hour {
+                    app.scroll_up();
                 }
             }
             KeyCode::Down => {
-                let end_hour = app.config.calendar.visible_hours_end.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(24);
-                if app.selected_time.hour() < end_hour - 1 {
-                    app.selected_time += Duration::hours(1);
+                app.selected_time += Duration::minutes(30);
+                if app.selected_time.hour() >= app.visible_end_hour {
+                    app.scroll_down();
                 }
             }
             _ => {}
@@ -183,15 +183,15 @@ fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
             app.selection_start = None;
         }
         KeyCode::Up => {
-            let start_hour = app.config.calendar.visible_hours_start.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(0);
-            if app.selected_time.hour() > start_hour {
-                app.selected_time -= Duration::hours(1);
+            app.selected_time -= Duration::minutes(30);
+            if app.selected_time.hour() < app.visible_start_hour {
+                app.scroll_up();
             }
         }
         KeyCode::Down => {
-            let end_hour = app.config.calendar.visible_hours_end.split(':').next().and_then(|h| h.parse::<u32>().ok()).unwrap_or(24);
-            if app.selected_time.hour() < end_hour - 1 {
-                app.selected_time += Duration::hours(1);
+            app.selected_time += Duration::minutes(30);
+            if app.selected_time.hour() >= app.visible_end_hour {
+                app.scroll_down();
             }
         }
         KeyCode::Enter => {
@@ -207,7 +207,7 @@ fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
                     description: TextArea::default(),
                     location: TextArea::default(),
                     start_datetime: app.selected_date.and_time(start),
-                    end_datetime: app.selected_date.and_time(end),
+                    end_datetime: app.selected_date.and_time(end) + Duration::minutes(30),
                     focused_field: 0,
                 });
                 app.selection_start = None;
