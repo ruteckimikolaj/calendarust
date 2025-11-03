@@ -1,8 +1,12 @@
-use crate::{app::App, storage::db::get_events_in_range};
+use crate::{
+    app::App,
+    storage::db::get_events_in_range,
+    ui::style::{selection_style, thick_rounded_borders, PASTEL_RED},
+};
 use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Borders, Cell, Row, Table},
     Frame,
 };
@@ -58,11 +62,8 @@ pub fn draw_month_view(f: &mut Frame, app: &App, area: Rect) {
 fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Table<'a> {
     let header_cells = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
-    let header = Row::new(header_cells)
-        .style(Style::default().bg(Color::Blue))
-        .height(1)
-        .bottom_margin(1);
+        .map(|h| Cell::from(*h).style(Style::default().fg(PASTEL_RED)));
+    let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let year = app.selected_date.year();
     let month = app.selected_date.month();
@@ -90,7 +91,7 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
         };
         let mut cell = Cell::from(day_str);
         if day as u32 == app.selected_date.day() {
-            cell = cell.style(Style::default().bg(Color::Yellow).fg(Color::Black));
+            cell = cell.style(selection_style());
         }
         days.push(cell);
         if days.len() == 7 {
@@ -109,6 +110,6 @@ fn month_table<'a>(app: &App, event_days: &std::collections::HashSet<u32>) -> Ta
     let constraints = vec![Constraint::Percentage(14); 7];
     Table::new(rows, constraints)
         .header(header)
-        .block(Block::default().borders(Borders::ALL))
+        .block(thick_rounded_borders())
         .column_spacing(1)
 }

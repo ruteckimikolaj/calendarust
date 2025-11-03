@@ -3,6 +3,7 @@ use chrono::{NaiveDate, NaiveTime};
 use rusqlite::Connection;
 use tui_textarea::TextArea;
 
+#[derive(PartialEq, Eq)]
 pub enum AppState {
     Year,
     Month,
@@ -10,6 +11,7 @@ pub enum AppState {
     Day,
 }
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum InteractionMode {
     Navigation,
     Selection,

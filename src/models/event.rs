@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 
+#[allow(dead_code)]
 pub struct Event {
     pub id: Option<i64>,
     pub title: String,
