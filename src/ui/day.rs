@@ -1,13 +1,12 @@
 use crate::{
     app::{App, InteractionMode},
-    storage::db::get_events_in_range,
-    ui::style::{focused_style, selection_style, thick_rounded_borders, PASTEL_CYAN},
+    ui::style::{focused_style, selection_style, PASTEL_CYAN},
 };
 use chrono::{Datelike, Timelike};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
-    widgets::{Block, Borders, Paragraph, BorderType},
+    layout::{Constraint, Rect},
+    style::{Color, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
     Frame,
 };
 
@@ -23,28 +22,6 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         day,
         year
     );
-
-    let main_block = thick_rounded_borders().title(title);
-    let inner_area = main_block.inner(area);
-    f.render_widget(main_block, area);
-
-    let start_timestamp = app
-        .selected_date
-        .and_hms_opt(0, 0, 0)
-        .map(|dt| dt.and_utc().timestamp())
-        .unwrap_or_default();
-    let end_timestamp = app
-        .selected_date
-        .and_hms_opt(23, 59, 59)
-        .map(|dt| dt.and_utc().timestamp())
-        .unwrap_or_default();
-
-    let events = get_events_in_range(&app.conn, start_timestamp, end_timestamp).unwrap_or_default();
-
-    let outer_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(6), Constraint::Min(0)])
-        .split(inner_area);
 
     let start_hour = app
         .config
@@ -63,33 +40,15 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
         .and_then(|h| h.parse::<u32>().ok())
         .unwrap_or(24);
 
-    let num_hours = end_hour - start_hour;
-    let constraints = (0..num_hours)
-        .map(|_| Constraint::Ratio(1, num_hours))
-        .collect::<Vec<_>>();
-
-    let time_slots_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints.clone())
-        .split(outer_layout[0]);
-
-    let event_slots_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints)
-        .split(outer_layout[1]);
-
-    for (i, hour) in (start_hour..end_hour).enumerate() {
-        let time_slot = time_slots_layout[i];
-        let event_slot = event_slots_layout[i];
-
+    let mut rows = vec![];
+    for hour in start_hour..end_hour {
         let time_text = format!("{:02}:00", hour);
-        let time_paragraph = Paragraph::new(time_text);
-        f.render_widget(time_paragraph, time_slot);
+        let time_cell = Cell::from(time_text);
 
         let mut event_text = String::new();
         let mut cell_style = Style::default();
 
-        for event in &events {
+        for event in &app.events {
             let event_start_hour = event.start_datetime.hour();
             if event.start_datetime.date_naive() == app.selected_date && event_start_hour == hour {
                 event_text = event.title.clone();
@@ -113,16 +72,26 @@ pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
             false
         };
 
-        let mut block = Block::default().borders(Borders::ALL).border_type(BorderType::Plain);
-        if is_focused {
-            block = block.border_style(focused_style());
-        }
+        let mut event_cell = Cell::from(event_text);
         if is_in_selection_range {
             cell_style = selection_style();
+        } else if is_focused {
+            cell_style = focused_style();
         }
+        event_cell = event_cell.style(cell_style);
 
-        let event_paragraph = Paragraph::new(event_text).style(cell_style);
-        f.render_widget(block.clone(), event_slot);
-        f.render_widget(event_paragraph, block.inner(event_slot));
+        rows.push(Row::new(vec![time_cell, event_cell]).height(1));
     }
+
+    let constraints = [Constraint::Length(6), Constraint::Min(0)];
+    let table = Table::new(rows, constraints)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray))
+                .title(title),
+        )
+        .column_spacing(0);
+
+    f.render_widget(table, area);
 }

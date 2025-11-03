@@ -8,10 +8,9 @@ pub mod year;
 use crate::app::{App, AppState, InteractionMode};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    widgets::Paragraph,
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
-use style::thick_rounded_borders;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
@@ -34,8 +33,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     }
 
     let footer_text = get_footer_text(app);
-    let footer = Paragraph::new(footer_text)
-        .block(thick_rounded_borders().title(" Controls "));
+    let footer = Paragraph::new(footer_text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray))
+            .title(" Controls "),
+    );
     f.render_widget(footer, footer_area);
 }
 

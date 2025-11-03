@@ -1,7 +1,7 @@
 use crate::{
     app::{App, AppState, EventFormState, InteractionMode},
     models::event::Event,
-    storage::db::{create_event, delete_event, get_events_in_range, update_event},
+    storage::db::{create_event, delete_event, update_event},
 };
 use chrono::{Datelike, Duration, TimeZone, Utc, Timelike};
 use crossterm::event::{KeyCode, KeyEvent};
@@ -91,40 +91,39 @@ fn handle_navigation_input(key: KeyEvent, app: &mut App) {
             }
             KeyCode::Char('e') => {
                 let start_of_slot = app.selected_date.and_time(app.selected_time);
-                let end_of_slot = start_of_slot + Duration::minutes(30);
-                let start_timestamp = start_of_slot.and_utc().timestamp();
-                let end_timestamp = end_of_slot.and_utc().timestamp();
+                let end_of_slot = start_of_slot + Duration::hours(1);
 
-                if let Ok(events) = get_events_in_range(&app.conn, start_timestamp, end_timestamp) {
-                    if let Some(event) = events.first() {
-                        app.mode = InteractionMode::EventForm;
-                        app.event_form_state = Some(EventFormState {
-                            title: TextArea::from(event.title.lines().map(|s| s.to_string())),
-                            description: TextArea::from(
-                                event.description.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
-                            ),
-                            location: TextArea::from(
-                                event.location.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
-                            ),
-                            start_datetime: event.start_datetime.naive_utc(),
-                            end_datetime: event.end_datetime.naive_utc(),
-                            focused_field: 0,
-                        });
-                        app.selected_event_id = event.id;
-                    }
+                if let Some(event) = app.events.iter().find(|e| {
+                    e.start_datetime.naive_utc() >= start_of_slot
+                        && e.start_datetime.naive_utc() < end_of_slot
+                }) {
+                    app.mode = InteractionMode::EventForm;
+                    app.event_form_state = Some(EventFormState {
+                        title: TextArea::from(event.title.lines().map(|s| s.to_string())),
+                        description: TextArea::from(
+                            event.description.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
+                        ),
+                        location: TextArea::from(
+                            event.location.as_deref().unwrap_or("").lines().map(|s| s.to_string()),
+                        ),
+                        start_datetime: event.start_datetime.naive_utc(),
+                        end_datetime: event.end_datetime.naive_utc(),
+                        focused_field: 0,
+                    });
+                    app.selected_event_id = event.id;
                 }
             }
             KeyCode::Char('d') => {
                 let start_of_slot = app.selected_date.and_time(app.selected_time);
-                let end_of_slot = start_of_slot + Duration::minutes(30);
-                let start_timestamp = start_of_slot.and_utc().timestamp();
-                let end_timestamp = end_of_slot.and_utc().timestamp();
+                let end_of_slot = start_of_slot + Duration::hours(1);
 
-                if let Ok(events) = get_events_in_range(&app.conn, start_timestamp, end_timestamp) {
-                    if let Some(event) = events.first() {
-                        if let Some(id) = event.id {
-                            let _ = delete_event(&app.conn, id);
-                        }
+                if let Some(event) = app.events.iter().find(|e| {
+                    e.start_datetime.naive_utc() >= start_of_slot
+                        && e.start_datetime.naive_utc() < end_of_slot
+                }) {
+                    if let Some(id) = event.id {
+                        let _ = delete_event(&app.conn, id);
+                        app.load_events();
                     }
                 }
             }
@@ -208,7 +207,7 @@ fn handle_timeslot_input(key: KeyEvent, app: &mut App) {
                     description: TextArea::default(),
                     location: TextArea::default(),
                     start_datetime: app.selected_date.and_time(start),
-                    end_datetime: app.selected_date.and_time(end) + Duration::hours(1),
+                    end_datetime: app.selected_date.and_time(end),
                     focused_field: 0,
                 });
                 app.selection_start = None;
@@ -265,6 +264,7 @@ fn handle_event_form_input<'a>(key: KeyEvent, app: &mut App<'a>) {
                     } else {
                         let _ = create_event(&app.conn, &event);
                     }
+                    app.load_events();
                     app.mode = InteractionMode::Navigation;
                     app.event_form_state = None;
                     app.selected_event_id = None;

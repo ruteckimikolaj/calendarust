@@ -29,6 +29,7 @@ fn main() -> Result<()> {
     let config = load_config()?;
     let conn = initialize_db()?;
     let mut app = App::new(config, conn);
+    app.load_events();
     let res = run_app(&mut terminal, &mut app);
 
     // restore terminal

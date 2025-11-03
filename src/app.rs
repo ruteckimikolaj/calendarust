@@ -1,5 +1,5 @@
-use crate::models::config::Config;
-use chrono::{NaiveDate, NaiveTime};
+use crate::{models::config::Config, models::event::Event};
+use chrono::{Datelike, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 use tui_textarea::TextArea;
 
@@ -38,6 +38,7 @@ pub struct App<'a> {
     pub selected_date: NaiveDate,
     pub selected_time: NaiveTime,
     pub selection_start: Option<NaiveTime>,
+    pub events: Vec<Event>,
 }
 
 impl<'a> App<'a> {
@@ -60,6 +61,80 @@ impl<'a> App<'a> {
             selected_date: chrono::Local::now().naive_local().date(),
             selected_time: chrono::Local::now().naive_local().time(),
             selection_start: None,
+            events: vec![],
+        }
+    }
+
+    pub fn load_events(&mut self) {
+        let (start_timestamp, end_timestamp) = match self.state {
+            AppState::Day => {
+                let start = self.selected_date.and_hms_opt(0, 0, 0).unwrap();
+                let end = self.selected_date.and_hms_opt(23, 59, 59).unwrap();
+                (
+                    start.and_utc().timestamp(),
+                    end.and_utc().timestamp(),
+                )
+            }
+            AppState::Week => {
+                let week = self.selected_date.iso_week().week();
+                let year = self.selected_date.year();
+                let start = chrono::NaiveDate::from_isoywd_opt(year, week, chrono::Weekday::Mon)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+                let end = chrono::NaiveDate::from_isoywd_opt(year, week, chrono::Weekday::Sun)
+                    .unwrap()
+                    .and_hms_opt(23, 59, 59)
+                    .unwrap();
+                (
+                    start.and_utc().timestamp(),
+                    end.and_utc().timestamp(),
+                )
+            }
+            AppState::Month => {
+                let month = self.selected_date.month();
+                let year = self.selected_date.year();
+                let start = chrono::NaiveDate::from_ymd_opt(year, month, 1)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+                let end = if month == 12 {
+                    chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+                } else {
+                    chrono::NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+                }
+                .pred_opt()
+                .unwrap()
+                .and_hms_opt(23, 59, 59)
+                .unwrap();
+                (
+                    start.and_utc().timestamp(),
+                    end.and_utc().timestamp(),
+                )
+            }
+            AppState::Year => {
+                let year = self.selected_date.year();
+                let start = chrono::NaiveDate::from_ymd_opt(year, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+                let end = chrono::NaiveDate::from_ymd_opt(year, 12, 31)
+                    .unwrap()
+                    .and_hms_opt(23, 59, 59)
+                    .unwrap();
+                (
+                    start.and_utc().timestamp(),
+                    end.and_utc().timestamp(),
+                )
+            }
+        };
+
+        if start_timestamp > 0 {
+            self.events =
+                crate::storage::db::get_events_in_range(&self.conn, start_timestamp, end_timestamp)
+                    .unwrap_or_default();
+        } else {
+            self.events = vec![];
         }
     }
 }
