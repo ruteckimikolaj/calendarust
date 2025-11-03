@@ -1,6 +1,6 @@
 use crate::{
     app::{App, InteractionMode},
-    ui::style::{focused_style, normal_style, selection_style, PASTEL_CYAN},
+    ui::style::{event_style, focused_style, normal_style, selection_style},
 };
 use chrono::{Datelike, Local, Timelike};
 use ratatui::{
@@ -44,7 +44,7 @@ pub fn draw_day_view(f: &mut Frame, app: &mut App, area: Rect) {
                     && event_start_minute == *minute
                 {
                     event_text = event.title.clone();
-                    cell_style = cell_style.bg(PASTEL_CYAN);
+                    cell_style = event_style();
                 }
             }
 
@@ -72,6 +72,9 @@ pub fn draw_day_view(f: &mut Frame, app: &mut App, area: Rect) {
         }
         if is_in_selection_range {
             cell_style = cell_style.patch(selection_style());
+        }
+        if is_focused {
+            cell_style = cell_style.patch(focused_style());
         }
         let event_cell = Cell::from(event_text).style(cell_style);
 

@@ -1,5 +1,5 @@
 use crate::{models::config::load_config, models::event::Event};
-use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
+use chrono::{Datelike, NaiveDate, NaiveTime};
 use rusqlite::Connection;
 use tui_textarea::TextArea;
 
