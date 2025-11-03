@@ -11,8 +11,6 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::InteractionMode;
-
 pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let week = app.selected_date.iso_week().week();
@@ -100,9 +98,9 @@ fn week_table<'a>(app: &App) -> Table<'a> {
                     false
                 };
 
-                let final_style = if app.mode == InteractionMode::TimeSlot && is_in_selection_range {
+                let final_style = if is_selected {
                     selected_style()
-                } else if app.mode != InteractionMode::TimeSlot && is_selected {
+                } else if is_in_selection_range {
                     selected_style()
                 } else {
                     cell_style
@@ -131,6 +129,6 @@ fn week_table<'a>(app: &App) -> Table<'a> {
     ];
     Table::new(rows, constraints)
         .header(header)
-        .block(Block::default().borders(Borders::ALL))
+        .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Thick))
         .column_spacing(1)
 }

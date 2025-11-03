@@ -11,8 +11,6 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::InteractionMode;
-
 pub fn draw_day_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let month = app.selected_date.month();
@@ -76,9 +74,9 @@ fn day_table<'a>(app: &App) -> Table<'a> {
                 false
             };
 
-            let event_cell_style = if app.mode == InteractionMode::TimeSlot && is_in_selection_range {
+            let event_cell_style = if is_selected {
                 selected_style()
-            } else if app.mode != InteractionMode::TimeSlot && is_selected {
+            } else if is_in_selection_range {
                 selected_style()
             } else {
                 row_style
@@ -98,6 +96,6 @@ fn day_table<'a>(app: &App) -> Table<'a> {
 
     let constraints = vec![Constraint::Length(6), Constraint::Min(0)];
     Table::new(rows, constraints)
-        .block(Block::default().borders(Borders::ALL))
+        .block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Thick))
         .column_spacing(1)
 }

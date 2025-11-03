@@ -70,9 +70,3 @@ pub fn load_config() -> Result<Config> {
     }
 }
 
-pub fn save_config(config: &Config) -> Result<()> {
-    let config_path = get_config_path()?;
-    let config_str = toml::to_string(config)?;
-    fs::write(config_path, config_str)?;
-    Ok(())
-}
