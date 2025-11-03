@@ -1,4 +1,7 @@
-use crate::app::App;
+use crate::{
+    app::App,
+    ui::style::{selected_style, thick_rounded_borders},
+};
 use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -11,7 +14,7 @@ pub fn draw_year_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let title = format!("Year {}", year);
 
-    let block = Block::default().title(title).borders(Borders::ALL);
+    let block = thick_rounded_borders().title(title);
     f.render_widget(block, area);
 
     let inner_area = area.inner(ratatui::layout::Margin {
@@ -32,13 +35,14 @@ pub fn draw_year_view(f: &mut Frame, app: &App, area: Rect) {
 
         for (j, month_chunk) in month_chunks.iter().enumerate() {
             let month_index = (i * 3 + j + 1) as u32;
-            let month_table = mini_month_table(year, month_index);
+            let is_selected = month_index == app.selected_date.month();
+            let month_table = mini_month_table(year, month_index, is_selected);
             f.render_widget(month_table, *month_chunk);
         }
     }
 }
 
-fn mini_month_table<'a>(year: i32, month: u32) -> Table<'a> {
+fn mini_month_table<'a>(year: i32, month: u32, is_selected: bool) -> Table<'a> {
     let month_name = Month::try_from(month as u8)
         .unwrap_or(Month::January)
         .name();
@@ -76,11 +80,14 @@ fn mini_month_table<'a>(year: i32, month: u32) -> Table<'a> {
         rows.push(Row::new(days.drain(..)));
     }
 
+    let block = Block::default().title(month_name).borders(Borders::ALL);
+    let table_block = if is_selected {
+        block.style(selected_style())
+    } else {
+        block
+    };
+
     Table::new(rows, vec![Constraint::Length(2); 7])
         .header(header)
-        .block(
-            Block::default()
-                .title(month_name)
-                .borders(Borders::ALL),
-        )
+        .block(table_block)
 }

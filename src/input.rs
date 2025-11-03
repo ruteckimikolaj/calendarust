@@ -30,17 +30,41 @@ fn handle_navigation_input(key: KeyEvent, app: &mut App) {
         AppState::Year => match key.code {
             KeyCode::Enter => app.mode = InteractionMode::Selection,
             KeyCode::Left => {
-                app.selected_date = app.selected_date.with_month(app.selected_date.month() - 1).unwrap_or_else(|| {
-                    app.selected_date.with_year(app.selected_date.year() - 1).unwrap().with_month(12).unwrap()
-                })
+                app.selected_date = app
+                    .selected_date
+                    .with_month(app.selected_date.month() - 1)
+                    .unwrap_or_else(|| {
+                        app.selected_date
+                            .with_year(app.selected_date.year() - 1)
+                            .unwrap()
+                            .with_month(12)
+                            .unwrap()
+                    })
             }
             KeyCode::Right => {
-                app.selected_date = app.selected_date.with_month(app.selected_date.month() + 1).unwrap_or_else(|| {
-                    app.selected_date.with_year(app.selected_date.year() + 1).unwrap().with_month(1).unwrap()
-                })
+                app.selected_date = app
+                    .selected_date
+                    .with_month(app.selected_date.month() + 1)
+                    .unwrap_or_else(|| {
+                        app.selected_date
+                            .with_year(app.selected_date.year() + 1)
+                            .unwrap()
+                            .with_month(1)
+                            .unwrap()
+                    })
             }
-            KeyCode::Up => app.selected_date = app.selected_date.with_year(app.selected_date.year() - 1).unwrap_or(app.selected_date),
-            KeyCode::Down => app.selected_date = app.selected_date.with_year(app.selected_date.year() + 1).unwrap_or(app.selected_date),
+            KeyCode::Up => {
+                app.selected_date = app
+                    .selected_date
+                    .with_year(app.selected_date.year() - 1)
+                    .unwrap_or(app.selected_date)
+            }
+            KeyCode::Down => {
+                app.selected_date = app
+                    .selected_date
+                    .with_year(app.selected_date.year() + 1)
+                    .unwrap_or(app.selected_date)
+            }
             _ => {}
         },
         AppState::Month => match key.code {
@@ -79,6 +103,68 @@ fn handle_selection_input(key: KeyEvent, app: &mut App) {
             AppState::Week | AppState::Day => {
                 app.mode = InteractionMode::TimeSlot;
                 app.selection_start = Some(app.selected_time);
+            }
+        },
+        KeyCode::Left => match app.state {
+            AppState::Year => {
+                app.selected_date = app
+                    .selected_date
+                    .with_month(app.selected_date.month() - 1)
+                    .unwrap_or_else(|| {
+                        app.selected_date
+                            .with_year(app.selected_date.year() - 1)
+                            .unwrap()
+                            .with_month(12)
+                            .unwrap()
+                    })
+            }
+            AppState::Month => app.selected_date -= Duration::days(1),
+            _ => {}
+        },
+        KeyCode::Right => match app.state {
+            AppState::Year => {
+                app.selected_date = app
+                    .selected_date
+                    .with_month(app.selected_date.month() + 1)
+                    .unwrap_or_else(|| {
+                        app.selected_date
+                            .with_year(app.selected_date.year() + 1)
+                            .unwrap()
+                            .with_month(1)
+                            .unwrap()
+                    })
+            }
+            AppState::Month => app.selected_date += Duration::days(1),
+            _ => {}
+        },
+        KeyCode::Up => match app.state {
+            AppState::Year => {
+                app.selected_date = app
+                    .selected_date
+                    .with_year(app.selected_date.year() - 3)
+                    .unwrap_or(app.selected_date)
+            }
+            AppState::Month => app.selected_date -= Duration::weeks(1),
+            AppState::Week | AppState::Day => {
+                app.selected_time = app
+                    .selected_time
+                    .overflowing_sub_signed(Duration::minutes(30))
+                    .0
+            }
+        },
+        KeyCode::Down => match app.state {
+            AppState::Year => {
+                app.selected_date = app
+                    .selected_date
+                    .with_year(app.selected_date.year() + 3)
+                    .unwrap_or(app.selected_date)
+            }
+            AppState::Month => app.selected_date += Duration::weeks(1),
+            AppState::Week | AppState::Day => {
+                app.selected_time = app
+                    .selected_time
+                    .overflowing_add_signed(Duration::minutes(30))
+                    .0
             }
         },
         KeyCode::Char('e') | KeyCode::Char('d') => {

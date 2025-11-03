@@ -1,6 +1,7 @@
 pub mod day;
 pub mod event_form;
 pub mod month;
+pub mod style;
 pub mod week;
 pub mod year;
 

@@ -1,8 +1,12 @@
-use crate::{app::App, storage::db::get_events_in_range};
+use crate::{
+    app::App,
+    storage::db::get_events_in_range,
+    ui::style::{selected_style, thick_rounded_borders, PASTEL_CYAN, PASTEL_RED},
+};
 use chrono::{Datelike, Timelike, Weekday};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Borders, Cell, Row, Table},
     Frame,
 };
@@ -27,11 +31,8 @@ pub fn draw_week_view(f: &mut Frame, app: &App, area: Rect) {
 fn week_table<'a>(app: &App) -> Table<'a> {
     let header_cells = ["Time", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
-    let header = Row::new(header_cells)
-        .style(Style::default().bg(Color::Blue))
-        .height(1)
-        .bottom_margin(1);
+        .map(|h| Cell::from(*h).style(Style::default().fg(PASTEL_RED)));
+    let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let year = app.selected_date.year();
     let week = app.selected_date.iso_week().week();
@@ -87,7 +88,7 @@ fn week_table<'a>(app: &App) -> Table<'a> {
                             && current_time < event_end_time
                         {
                             event_text.push_str(&event.title);
-                            cell_style = cell_style.bg(Color::Cyan);
+                            cell_style = cell_style.bg(PASTEL_CYAN);
                         }
                     }
                     let mut cell = Cell::from(event_text).style(cell_style);
@@ -95,7 +96,7 @@ fn week_table<'a>(app: &App) -> Table<'a> {
                         && hour == app.selected_time.hour()
                         && minute == app.selected_time.minute()
                     {
-                        cell = cell.style(Style::default().bg(Color::Yellow));
+                        cell = cell.style(selected_style());
                     }
                     cells.push(cell);
                 }
@@ -116,6 +117,6 @@ fn week_table<'a>(app: &App) -> Table<'a> {
     ];
     Table::new(rows, constraints)
         .header(header)
-        .block(Block::default().borders(Borders::ALL))
+        .block(thick_rounded_borders())
         .column_spacing(1)
 }
