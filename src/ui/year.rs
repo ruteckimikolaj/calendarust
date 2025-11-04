@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    ui::style::{selection_style, thick_rounded_borders},
+    ui::style::{selection_style},
 };
 use chrono::{Datelike, Month, NaiveDate};
 use ratatui::{
@@ -14,7 +14,10 @@ pub fn draw_year_view(f: &mut Frame, app: &App, area: Rect) {
     let year = app.selected_date.year();
     let title = format!("Year {}", year);
 
-    let block = thick_rounded_borders().title(title);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray))
+        .title(title);
     f.render_widget(block, area);
 
     let inner_area = area.inner(ratatui::layout::Margin {

@@ -5,7 +5,6 @@ mod storage;
 mod ui;
 
 use crate::app::App;
-use crate::models::config::load_config;
 use crate::storage::db::initialize_db;
 use anyhow::Result;
 use crossterm::{
@@ -26,9 +25,9 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let config = load_config()?;
     let conn = initialize_db()?;
-    let mut app = App::new(config, conn);
+    let mut app = App::new(conn);
+    app.load_events();
     let res = run_app(&mut terminal, &mut app);
 
     // restore terminal

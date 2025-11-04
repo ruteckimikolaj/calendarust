@@ -1,16 +1,17 @@
-use crate::{
-    app::App,
-    ui::style::{selection_style, thick_rounded_borders},
-};
+use crate::{app::App, ui::style::selection_style};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
     widgets::{Block, Borders, Clear, Paragraph},
     Frame,
 };
 
 pub fn draw_event_form(f: &mut Frame, app: &mut App, area: Rect) {
     let popup_area = centered_rect(60, 50, area);
-    let block = thick_rounded_borders().title(" Create Event ");
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray))
+        .title(" Create Event ");
     f.render_widget(Clear, popup_area);
     f.render_widget(block, popup_area);
 
