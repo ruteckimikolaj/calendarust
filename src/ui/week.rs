@@ -68,9 +68,6 @@ pub fn draw_week_view(f: &mut Frame, app: &mut App, area:Rect) {
             let is_focused = app.selected_date == current_day
                 && app.selected_time.hour() == hour
                 && app.selected_time.minute() == *minute;
-            if is_focused {
-                cell_style = cell_style.patch(focused_style());
-            }
             if is_in_selection_range {
                 cell_style = cell_style.patch(selection_style());
             }

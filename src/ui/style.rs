@@ -7,12 +7,12 @@ pub const PASTEL_CYAN: Color = Color::Rgb(102, 255, 255);
 
 // Style for the navigation cursor
 pub fn focused_style() -> Style {
-    Style::default().bg(Color::Black).fg(Color::White)
+    Style::default().bg(Color::Yellow).fg(Color::Black)
 }
 
 // Style for a confirmed selection
 pub fn selection_style() -> Style {
-    Style::default().bg(Color::Rgb(0, 0, 100))
+    Style::default().bg(Color::Red).fg(Color::Black)
 }
 
 // Style for a cell with an event
